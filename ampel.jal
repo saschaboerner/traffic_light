@@ -58,12 +58,6 @@ enable_digital_io()                -- disable analog I/O (if any)
 
 var byte val_b;
 
--- Multiplex for serial reception
-var byte serial_rxbuf[16];    -- Contains current byte being shifted in/out
-var byte serial_rxptr;       -- Number of byte to write next
-var byte serial_rxrptr;      -- Number of next byte to parse
-var byte serial_state;       -- State of low-level serial link (see DLE{ DLE})
-
 var bit yellow_en           is pin_C5
 pin_C5_direction = output
 var bit red_en              is pin_C3
@@ -327,14 +321,49 @@ end procedure
 
 serial_hw_write("H")          ; Be polite and say H(ello) :)
 
+var byte serial_state;
+var word serial_word;
+const SERIAL_IDLE = 0;
+const SERIAL_READ_ADDRESS = 1;
+const SERIAL_READ_DATA = 2;
+serial_state = SERIAL_IDLE;
+
 procedure serial_statemachine() is
-    if serial_hw_read(tmp) then
+    if ! serial_hw_read(tmp) then
+        return
+    end if
+    if serial_state == SERIAL_IDLE then
         if tmp=="G" then
             request_green = 1
         end if
         if tmp=="g" then
             request_green = 0
         end if
+        if tmp=="s" then
+            serial_state = SERIAL_READ_ADDRESS
+            serial_word = 0
+        end if
+        return
+    end if
+    if (serial_state == SERIAL_READ_ADDRESS) | (serial_state == SERIAL_READ_DATA) then
+        if (tmp>="0") & (tmp<="9") then
+            serial_word = (serial_word << 4) | ( tmp - "0" );
+        end if
+        if (tmp>="a") & (tmp<="f") then
+            serial_word = (serial_word << 4) | ( tmp - ("a" - 10) );
+        end if
+        if (tmp=="=") & (serial_state == SERIAL_READ_ADDRESS) then
+            serial_state = SERIAL_READ_DATA;
+            serial_word = 0
+        end if
+        if ((tmp==0x0a) | (tmp=0x0d)) & (serial_state == SERIAL_READ_DATA) then
+            serial_state = SERIAL_IDLE;
+            serial_word = 0
+        end if
+        if tmp==27 then
+            serial_state = SERIAL_IDLE;
+        end if
+        return
     end if
 end procedure
 
