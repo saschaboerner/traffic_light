@@ -1,0 +1,319 @@
+-- ------------------------------------------------------
+-- Title: Ampelsteuerung mit Drahtbrucherkennung
+--
+-- Author: Peter Turczak, NC
+--
+-- Adapted-by:
+--
+-- Compiler: jalv2 >=2.4h
+--
+-- ------------------------------------------------------
+--             P I N O U T   A N D    U S A G E
+--
+-- PRI   PIN#  Signal   Signal PIN#  PRI      SEC
+--             +------   ------+   
+--           1 I VDD  \_/  VSS I 20  GND
+-- QUARTZ    2 I RA5       RA0 I 19           ICSP_DAT
+-- QUARTZ    3 I RA4       RA1 I 18  VREF     ICSP_CLK
+-- RMTE VPP  4 I RA3       RA2 I 17  
+-- YELLOW_EN 5 I RC5       RC0 I 16 RED_SENSE
+-- GREEN_EN  6 I RC4       RC1 I 15 YELLOW_SENSE
+-- RED_EN    7 I RC3       RC2 I 14 GREEN_SENSE
+--           8 I RC6       RB4 I 13 I2C_SDA 
+-- BAT_SENSE 9 I RC7       RB5 I 12 RXD
+-- TXD      10 I RB7       RB6 I 11 I2C_SCL
+--             +---------------+   
+--
+-- ------------------------------------------------------
+--
+include 16f690		-- target PICmicro
+include pic_data_eeprom
+include print
+
+-- Number of pulses/second
+const second = 48
+
+const min_on_current = 100
+const max_off_current = 10
+
+--
+-- This program assumes a 18.432 MHz external quartz oscillator
+pragma target OSC hs -- External quartz
+pragma target clock 11_059_200     -- oscillator frequency
+pragma target IESO DISABLED
+pragma target FCMEN DISABLED
+const serial_hw_baudrate = 19200;
+var bit serial_ctsinv;
+var bit serial_overflow_discard=false;
+include serial_hw_int_cts
+serial_hw_init()
+-- include adc_hardware
+--
+pragma target WDT  disabled
+-- pragma target MCLR internal
+--
+enable_digital_io()                -- disable analog I/O (if any)
+--
+
+var byte val_b;
+
+-- Multiplex for serial reception
+var byte serial_rxbuf[16];    -- Contains current byte being shifted in/out
+var byte serial_rxptr;       -- Number of byte to write next
+var byte serial_rxrptr;      -- Number of next byte to parse
+var byte serial_state;       -- State of low-level serial link (see DLE{ DLE})
+
+var bit yellow_en           is pin_C5
+pin_C5_direction = output
+var bit red_en              is pin_C3
+pin_C3_direction = output
+var bit green_en            is pin_C4
+pin_C4_direction = output
+
+-- Mirror bits for outputs
+var bit red;
+var bit yellow;
+var bit green;
+
+-- Analog inputs
+pin_C7_direction = input
+const batt_sense = 9
+pin_C0_direction = input
+const red_sense = 4
+pin_C1_direction = input
+const yellow_sense = 5
+pin_C2_direction = input
+const green_sense = 6
+-- Setup A/D
+-- AN4..AN6 Lamp sense, AN9=Batt Sense
+-- 16 Tosc
+ANSEL  = 0b0111_0000;
+ANSELH = 0b0000_0010;
+ADCON0_ADFM = 1;
+ADCON0_VCFG = 1; External ref. Voltage
+ADCON0_ADON = 1;
+-- TMR0: A/D wait timer
+-- Clk = 10MHz/4 = 2.5MHz
+OPTION_REG_PSA = 0
+OPTION_REG_T0CS = 0
+
+-- TMR1: "Pulse" timer
+T2CON_T2CKPS = 2;
+T2CON_TOUTPS = 0b1111;
+-- PR=(65535-3907) -> ~4Hz
+-- PR2 = 255-16;word(65535-3907)
+T2CON_TMR2ON = 1
+
+var byte pulse;
+
+var byte analog_chan;
+var byte analog_cycles;
+analog_cycles = 0;
+analog_chan = 0;
+var word analog_values[10];
+analog_chan = 4;
+var bit wait_adsettle;
+var bit adc_firstround;
+adc_firstround = true;
+
+var byte tmp;
+for 10 using tmp loop
+    ; Mark channels unread
+    analog_values[tmp]=65534;
+end loop
+
+ADCON0_GO = 1;
+
+TMR2 = 0
+PIR1_TMR2IF = 0
+PIE1_TMR2IE = 1
+
+-- INTCON_PEIE = 1;
+
+procedure isr is
+pragma interrupt
+    if PIR1_TMR2IF then
+        if pulse < 255 then
+            pulse = pulse + 1
+        end if
+        PIR1_TMR2IF = 0
+    end if
+end procedure
+
+procedure analog_statemachine is
+ if (INTCON_T0IF == 1) & (wait_adsettle) then
+    INTCON_T0IF = 0;
+    wait_adsettle = 0;
+    ADCON0_GO = 1;
+ end if; 
+ ; Got A/D Value
+ if PIR1_ADIF then
+         PIR1_ADIF = 0;
+         analog_values[analog_chan] = (word(ADRESH) << 8) | ADRESL;
+         case analog_chan of
+          4: analog_chan=5;
+          5: analog_chan=6;
+          6: analog_chan=9;
+          otherwise block
+            analog_chan=4;
+            adc_firstround = 0;
+            end block;
+         end case
+         ADCON0_CHS = analog_chan;
+         ; Start wait timer ~102.4us
+         ; TMX_EN
+         TMR0 = 0;
+         INTCON_T0IF = 0;
+         wait_adsettle = 1;
+         if analog_cycles < 255 then
+            analog_cycles = analog_cycles + 1
+         end if
+ end if
+end procedure
+
+var byte traffic_state;
+const TRAFFIC_TEST_RED = 0;
+const TRAFFIC_TEST_RED_YELLOW = 1;
+const TRAFFIC_TEST_RED_YELLOW_GREEN = 2;
+const TRAFFIC_GREEN = 3;
+const TRAFFIC_YELLOW = 4;
+const TRAFFIC_RED = 5;
+const TRAFFIC_RED_YELLOW = 6;
+const TRAFFIC_FAIL = 9;
+traffic_state = TRAFFIC_TEST_RED;
+
+var bit request_green;
+var bit fault;
+fault = 0;
+request_green = 0;
+pulse=0;
+
+procedure traffic_statemachine() is
+   var byte oldstate;
+   oldstate = traffic_state;
+
+   case traffic_state of
+    TRAFFIC_TEST_RED: block
+            red = 1;
+            yellow = 0;
+            green = 0;
+            if (pulse > 1*second) then
+                pulse = 0;
+                traffic_state = TRAFFIC_TEST_RED_YELLOW
+            end if
+        end block
+    TRAFFIC_TEST_RED_YELLOW: block
+        red = 1;
+        yellow = 1;
+        green = 0;
+            if (pulse > 1*second) then
+                pulse = 0;
+                traffic_state = TRAFFIC_TEST_RED_YELLOW_GREEN
+            end if
+        end block
+    TRAFFIC_TEST_RED_YELLOW_GREEN: block
+        red = 1;
+        yellow = 1;
+        green = 1;
+            if (pulse > 1*second) then
+                pulse = 0;
+                traffic_state = TRAFFIC_RED
+            end if
+        end block
+    TRAFFIC_GREEN: block
+        red = 0;
+        yellow = 0;
+        green = 1;
+        if request_green == 0 then
+            pulse = 0;
+            traffic_state = TRAFFIC_YELLOW
+        end if
+        end block
+    TRAFFIC_YELLOW: block
+        red = 0;
+        yellow = 1;
+        green = 0;
+            if (pulse > 4*second) then
+                traffic_state = TRAFFIC_RED
+            end if
+        end block
+    TRAFFIC_RED: block
+        red = 1;
+        yellow = 0;
+        green = 0;
+        if request_green then
+            traffic_state = TRAFFIC_RED_YELLOW;
+        end if
+        end block
+    TRAFFIC_RED_YELLOW: block
+        red = 1;
+        yellow = 1;
+        green = 0;
+        if pulse > 4*second then
+            traffic_state = TRAFFIC_GREEN
+        end if
+        if request_green == 0 then
+            traffic_state = TRAFFIC_RED
+        end if
+        end block;
+    TRAFFIC_FAIL: block
+        red = 0;
+        if (pulse > 2*second) then
+            yellow = ! yellow;
+            pulse = 0;
+        end if
+        green = 0;
+        end block;
+
+   end case
+
+   red_en = red; ON HW ~RED !!
+   green_en = green;
+   yellow_en = yellow;
+
+   if oldstate != traffic_state then
+    analog_cycles = 0;
+    pulse = 0;
+   end if
+
+   ;; Automatic sanity check of outputs
+   if analog_cycles > 10 then
+        if ( (analog_values[red_sense] != 65534 ) & ( red & ( analog_values[red_sense] < min_on_current) | ( !red & (analog_values[red_sense] > max_off_current ) ) ) ) then
+            traffic_state = TRAFFIC_FAIL;
+        end if
+        if ( (analog_values[yellow_sense] != 65534 ) & (yellow & ( analog_values[yellow_sense] < min_on_current) | ( !yellow & (analog_values[yellow_sense] > max_off_current ) ) ) ) then
+            traffic_state = TRAFFIC_FAIL;
+        end if
+        if ( analog_values[yellow_sense] != 65534 ) & ( green & ( analog_values[green_sense] < min_on_current) | ( !green & (analog_values[green_sense] > max_off_current ) ) ) then
+            traffic_state = TRAFFIC_FAIL;
+        end if
+   end if
+end procedure
+
+serial_hw_write("H")          ; Be polite and say H(ello) :)
+
+forever loop
+    analog_statemachine();
+    traffic_statemachine();
+    print_byte_dec(serial_hw_data, traffic_state);
+    serial_hw_data = " ";
+    print_byte_dec(serial_hw_data, analog_cycles);
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, analog_values[red_sense]);
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, analog_values[yellow_sense]);
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, analog_values[green_sense]);
+    serial_hw_data = " ";
+    print_crlf(serial_hw_data);
+-- end loop
+-- forever loop
+    if serial_hw_read(tmp) then
+        if tmp=="G" then
+            request_green = 1
+        end if
+        if tmp=="g" then
+            request_green = 0
+        end if
+    end if
+end loop
