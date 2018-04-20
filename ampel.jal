@@ -34,6 +34,7 @@ include print
 const second = 48
 
 const min_on_current = 100
+const max_on_current = 2048
 const max_off_current = 10
 
 --
@@ -180,13 +181,46 @@ const TRAFFIC_YELLOW = 4;
 const TRAFFIC_RED = 5;
 const TRAFFIC_RED_YELLOW = 6;
 const TRAFFIC_FAIL = 9;
+
 traffic_state = TRAFFIC_TEST_RED;
 
+var word error_state;
+error_state = 0;
+var bit red_current_when_off at error_state:0
+var bit red_undercurrent at error_state:1
+var bit red_overcurrent at error_state:2
+var bit yellow_current_when_off at error_state:3
+var bit yellow_undercurrent at error_state:4
+var bit yellow_overcurrent at error_state:5
+var bit green_current_when_off at error_state:6
+var bit green_undercurrent at error_state:7
+var bit green_overcurrent at error_state:8
+
 var bit request_green;
-var bit fault;
-fault = 0;
 request_green = 0;
 pulse=0;
+
+
+
+procedure check_plausible(byte in channel, bit in state, byte out error_flags) is
+ error_flags = 0;
+ if analog_values[channel] == 65534 then
+    return
+ end if
+
+ if !state & (analog_values[channel] > max_off_current ) then
+    error_flags = error_flags | 0b001;
+ end if
+
+ if state & ( analog_values[channel] < min_on_current) then
+    error_flags = error_flags | 0b010
+ end if
+
+ if state & ( analog_values[channel] > max_on_current) then
+    error_flags = error_flags | 0b100
+ end if
+
+end procedure
 
 procedure traffic_statemachine() is
    var byte oldstate;
@@ -194,13 +228,13 @@ procedure traffic_statemachine() is
 
    case traffic_state of
     TRAFFIC_TEST_RED: block
-            red = 1;
-            yellow = 0;
-            green = 0;
-            if (pulse > 1*second) then
+        red = 1;
+        yellow = 0;
+        green = 0;
+        if (pulse > 1*second) then
                 pulse = 0;
                 traffic_state = TRAFFIC_TEST_RED_YELLOW
-            end if
+        end if
         end block
     TRAFFIC_TEST_RED_YELLOW: block
         red = 1;
@@ -278,13 +312,14 @@ procedure traffic_statemachine() is
 
    ;; Automatic sanity check of outputs
    if analog_cycles > 10 then
-        if ( (analog_values[red_sense] != 65534 ) & ( red & ( analog_values[red_sense] < min_on_current) | ( !red & (analog_values[red_sense] > max_off_current ) ) ) ) then
-            traffic_state = TRAFFIC_FAIL;
-        end if
-        if ( (analog_values[yellow_sense] != 65534 ) & (yellow & ( analog_values[yellow_sense] < min_on_current) | ( !yellow & (analog_values[yellow_sense] > max_off_current ) ) ) ) then
-            traffic_state = TRAFFIC_FAIL;
-        end if
-        if ( analog_values[yellow_sense] != 65534 ) & ( green & ( analog_values[green_sense] < min_on_current) | ( !green & (analog_values[green_sense] > max_off_current ) ) ) then
+        var word tmp_w;
+        check_plausible(red_sense, red, tmp_w);
+        error_state = error_state | tmp_w
+        check_plausible(yellow_sense, yellow, tmp_w);
+        error_state = error_state | (tmp_w << 3);
+        check_plausible(green_sense, green, tmp_w);
+        error_state = error_state | (tmp_w << 6);
+        if error_state != 0 then
             traffic_state = TRAFFIC_FAIL;
         end if
    end if
@@ -292,22 +327,7 @@ end procedure
 
 serial_hw_write("H")          ; Be polite and say H(ello) :)
 
-forever loop
-    analog_statemachine();
-    traffic_statemachine();
-    print_byte_dec(serial_hw_data, traffic_state);
-    serial_hw_data = " ";
-    print_byte_dec(serial_hw_data, analog_cycles);
-    serial_hw_data = " ";
-    print_word_dec(serial_hw_data, analog_values[red_sense]);
-    serial_hw_data = " ";
-    print_word_dec(serial_hw_data, analog_values[yellow_sense]);
-    serial_hw_data = " ";
-    print_word_dec(serial_hw_data, analog_values[green_sense]);
-    serial_hw_data = " ";
-    print_crlf(serial_hw_data);
--- end loop
--- forever loop
+procedure serial_statemachine() is
     if serial_hw_read(tmp) then
         if tmp=="G" then
             request_green = 1
@@ -316,4 +336,21 @@ forever loop
             request_green = 0
         end if
     end if
+end procedure
+
+forever loop
+    analog_statemachine();
+    traffic_statemachine();
+    serial_statemachine();
+    print_byte_dec(serial_hw_data, traffic_state);
+    serial_hw_data = " ";
+    print_word_hex(serial_hw_data, error_state);
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, analog_values[red_sense]);
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, analog_values[yellow_sense]);
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, analog_values[green_sense]);
+    serial_hw_data = " ";
+    print_crlf(serial_hw_data);
 end loop
