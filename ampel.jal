@@ -11,18 +11,18 @@
 --             P I N O U T   A N D    U S A G E
 --
 -- PRI   PIN#  Signal   Signal PIN#  PRI      SEC
---             +------   ------+   
+--             +------   ------+
 --           1 I VDD  \_/  VSS I 20  GND
 -- QUARTZ    2 I RA5       RA0 I 19           ICSP_DAT
 -- QUARTZ    3 I RA4       RA1 I 18  VREF     ICSP_CLK
--- RMTE VPP  4 I RA3       RA2 I 17  
+-- RMTE VPP  4 I RA3       RA2 I 17
 -- YELLOW_EN 5 I RC5       RC0 I 16 RED_SENSE
 -- GREEN_EN  6 I RC4       RC1 I 15 YELLOW_SENSE
 -- RED_EN    7 I RC3       RC2 I 14 GREEN_SENSE
---           8 I RC6       RB4 I 13 I2C_SDA 
+--           8 I RC6       RB4 I 13 I2C_SDA
 -- BAT_SENSE 9 I RC7       RB5 I 12 RXD
 -- TXD      10 I RB7       RB6 I 11 I2C_SCL
---             +---------------+   
+--             +---------------+
 --
 -- ------------------------------------------------------
 --
@@ -33,9 +33,9 @@ include print
 -- Number of pulses/second
 const second = 48
 
-const min_on_current = 100
-const max_on_current = 2048
-const max_off_current = 10
+const min_on_current_default = 100
+const max_on_current_default = 2048
+const max_off_current_default = 10
 
 --
 -- This program assumes a 18.432 MHz external quartz oscillator
@@ -79,6 +79,7 @@ pin_C1_direction = input
 const yellow_sense = 5
 pin_C2_direction = input
 const green_sense = 6
+
 -- Setup A/D
 -- AN4..AN6 Lamp sense, AN9=Batt Sense
 -- 16 Tosc
@@ -98,18 +99,25 @@ T2CON_TOUTPS = 0b1111;
 -- PR=(65535-3907) -> ~4Hz
 -- PR2 = 255-16;word(65535-3907)
 T2CON_TMR2ON = 1
+TMR2 = 0
+PIR1_TMR2IF = 0
+PIE1_TMR2IE = 1
+
 
 var byte pulse;
+pulse = 0;
 
 var byte analog_chan;
+analog_chan = 0;
 var byte analog_cycles;
 analog_cycles = 0;
-analog_chan = 0;
 var word analog_values[10];
 analog_chan = 4;
 var bit wait_adsettle;
-var bit adc_firstround;
-adc_firstround = true;
+wait_adsettle = 0;
+
+var dword batt_voltage; Battery voltage in 1/100th Volt
+batt_voltage = 1<<31;
 
 var byte tmp;
 for 10 using tmp loop
@@ -118,10 +126,6 @@ for 10 using tmp loop
 end loop
 
 ADCON0_GO = 1;
-
-TMR2 = 0
-PIR1_TMR2IF = 0
-PIE1_TMR2IE = 1
 
 -- INTCON_PEIE = 1;
 
@@ -135,12 +139,50 @@ pragma interrupt
     end if
 end procedure
 
+var word min_on_current;
+var word max_on_current;
+var word max_off_current;
+
+procedure load_eeprom() is
+    var word eeprom_tmp;
+
+    data_eeprom_read_word(0, eeprom_tmp);
+    if eeprom_tmp < 65534 then
+        min_on_current = eeprom_tmp
+    else
+        min_on_current = min_on_current_default
+    end if
+
+    data_eeprom_read_word(2, eeprom_tmp);
+    if eeprom_tmp < 65534 then
+        max_on_current = eeprom_tmp
+    else
+        max_on_current = max_on_current_default
+    end if
+
+    data_eeprom_read_word(4, eeprom_tmp);
+    if eeprom_tmp < 65534 then
+        max_off_current = eeprom_tmp
+    else
+        max_off_current = max_off_current_default
+    end if
+
+    print_crlf(serial_hw_data);
+    serial_hw_data = "H";
+    print_word_dec(serial_hw_data, min_on_current)
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, max_on_current)
+    serial_hw_data = " ";
+    print_word_dec(serial_hw_data, max_off_current)
+    print_crlf(serial_hw_data);
+end procedure
+
 procedure analog_statemachine is
  if (INTCON_T0IF == 1) & (wait_adsettle) then
     INTCON_T0IF = 0;
     wait_adsettle = 0;
     ADCON0_GO = 1;
- end if; 
+ end if;
  ; Got A/D Value
  if PIR1_ADIF then
          PIR1_ADIF = 0;
@@ -151,7 +193,6 @@ procedure analog_statemachine is
           6: analog_chan=9;
           otherwise block
             analog_chan=4;
-            adc_firstround = 0;
             end block;
          end case
          ADCON0_CHS = analog_chan;
@@ -192,9 +233,6 @@ var bit green_overcurrent at error_state:8
 
 var bit request_green;
 request_green = 0;
-pulse=0;
-
-
 
 procedure check_plausible(byte in channel, bit in state, byte out error_flags) is
  error_flags = 0;
@@ -319,8 +357,6 @@ procedure traffic_statemachine() is
    end if
 end procedure
 
-serial_hw_write("H")          ; Be polite and say H(ello) :)
-
 var byte serial_state;
 var word serial_word;
 const SERIAL_IDLE = 0;
@@ -356,7 +392,7 @@ procedure serial_statemachine() is
             serial_state = SERIAL_READ_DATA;
             serial_word = 0
         end if
-        if ((tmp==0x0a) | (tmp=0x0d)) & (serial_state == SERIAL_READ_DATA) then
+        if ((tmp==0x0a) | (tmp==0x0d)) & (serial_state == SERIAL_READ_DATA) then
             serial_state = SERIAL_IDLE;
             serial_word = 0
         end if
@@ -367,11 +403,21 @@ procedure serial_statemachine() is
     end if
 end procedure
 
+load_eeprom()
+
 forever loop
+    -- Scale factor:
+    -- Usense=1/11*Ubatt
+    -- Uref = 2.5V eq. 1024
+    -- factor: 11*2.5/1024 * 10 ( <- 1/100 volt/count)
+    batt_voltage = ((dword(analog_values[batt_sense])) * 2750)/1024
+
     analog_statemachine();
     traffic_statemachine();
     serial_statemachine();
     print_byte_dec(serial_hw_data, traffic_state);
+    serial_hw_data = " ";
+    print_dword_dec(serial_hw_data, batt_voltage);
     serial_hw_data = " ";
     print_word_hex(serial_hw_data, error_state);
     serial_hw_data = " ";
