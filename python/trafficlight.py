@@ -55,7 +55,7 @@ class TrafficLightGroup(object):
             return None
         return True
 
-class TrafficLightSerial(basic.LineReceiver):
+class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
     delimiter = '\n'
 

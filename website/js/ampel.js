@@ -11,11 +11,12 @@ traffic_light = {
         window.setTimeout(function(){traffic_light.run(interval, subdir, root_element);}, interval );
     },
     got_answer:function(root_element, data){
-        console.log(data);
+        //console.log(data);
+	$(".battvoltage", root_element).val(data.batt_voltage/100.0);
     }
 }
 
 $("document").ready(function()
 {
-    traffic_light.run(250, "/interface/state");
+    traffic_light.run(250, "/interface/status", $("#light1"));
 });
