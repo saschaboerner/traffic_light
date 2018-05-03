@@ -1,4 +1,5 @@
 import json
+import logging
 from twisted.internet.serialport import SerialPort
 from twisted.internet import reactor
 from twisted.protocols import basic
@@ -34,6 +35,8 @@ class TrafficLight(object):
     def isGood(self):
         return self.state != 9
 
+    def __str__(self):
+        return "TrafficLight(state={}, batt_voltage={}, lamp_currents={})".format(self.state, self.batt_voltage, self.lamp_currents)
 class TrafficLightGroup(object):
     def __init__(self, iAmMaster, local, remote):
         self.iAmMaster = iAmMaster
@@ -75,9 +78,11 @@ class TrafficLightSerial(basic.LineReceiver):
         # Ignore blank lines
         if not line: return
         line = line.decode("ascii").strip()
-
-        (self.state, self.batt_voltage, self.error_state, lamp_currents[0], lamp_currents[1], lamp_currents[2]) = line.split(" ")
-
+        try:
+            (self.state, self.batt_voltage, self.error_state, self.lamp_currents[0], self.lamp_currents[1], self.lamp_currents[2]) = line.split(" ")
+        except ValueError:
+            logging.info("Received garbled line")
+        logging.warning("update myself: {}".format(self))
 
     def setConfig(self, param, value):
         if param in self.config_map:
