@@ -1,0 +1,8 @@
+JAL:
+- Battery voltage calibration
+
+Python:
+- Serial comm
+- mdns publish/resolve
+- web frontend
+- message passing
