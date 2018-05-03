@@ -82,7 +82,7 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
             (self.state, self.batt_voltage, self.error_state, self.lamp_currents[0], self.lamp_currents[1], self.lamp_currents[2]) = line.split(" ")
         except ValueError:
             logging.info("Received garbled line")
-        logging.warning("update myself: {}".format(self))
+        #logging.warning("update myself: {}".format(self))
 
     def setConfig(self, param, value):
         if param in self.config_map:

@@ -44,7 +44,7 @@ class TrafficLightWeb(resource.Resource):
         return content.encode("utf-8")
 
     def render_POST(self, request):
-        return ""
+        print (request.content.getvalue())
 
 class TransportWrapper(object):
     secret = "AchWieGutDassNiemandWeiss"
