@@ -30,7 +30,7 @@ class TrafficLight(object):
 
     def setGreen(self, give_way):
         self.give_way = give_way
-        self.send_update()
+        self.sendUpdate()
 
     def isGood(self):
         return self.state != 9
@@ -98,4 +98,4 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
             self.sendLine("g")
 
     def serviceWatchdog(self):
-        self.send_update()
+        self.sendUpdate()

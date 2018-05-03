@@ -44,7 +44,15 @@ class TrafficLightWeb(resource.Resource):
         return content.encode("utf-8")
 
     def render_POST(self, request):
-        print (request.content.getvalue())
+        data = request.args
+        if 'giveway' in data:
+            try:
+                value = int(data['giveway'][0])
+            except:
+                return "value error"
+            self.localLight.setGreen(value)
+        else:
+            return "not ok"
 
 class TransportWrapper(object):
     secret = "AchWieGutDassNiemandWeiss"
