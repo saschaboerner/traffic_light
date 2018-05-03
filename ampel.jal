@@ -33,13 +33,13 @@ include print
 -- Number of pulses/second
 const second = 48
 
-const min_on_current_default = 100
+const min_on_current_default = 50
 const max_on_current_default = 2048
-const max_off_current_default = 10
+const max_off_current_default = 20
 
 --
 pragma target OSC hs -- External quartz
-pragma target clock 11_059_200     -- oscillator frequency
+pragma target clock 10_000_000     -- oscillator frequency
 pragma target IESO DISABLED
 pragma target FCMEN DISABLED
 const serial_hw_baudrate = 19200;
@@ -54,8 +54,6 @@ pragma target WDT  disabled
 --
 enable_digital_io()                -- disable analog I/O (if any)
 --
-
-var byte val_b;
 
 var bit yellow_en           is pin_C5
 pin_C5_direction = output
@@ -214,6 +212,7 @@ const TRAFFIC_GREEN = 3;
 const TRAFFIC_YELLOW = 4;
 const TRAFFIC_RED = 5;
 const TRAFFIC_RED_YELLOW = 6;
+const TRAFFIC_TEMP_ERROR = 8;
 const TRAFFIC_FAIL = 9;
 
 traffic_state = TRAFFIC_TEST_RED;
@@ -232,6 +231,9 @@ var bit green_overcurrent at error_state:8
 
 var bit request_green;
 request_green = 0;
+var bit request_temp_error;
+request_temp_error = 0;
+
 
 procedure check_plausible(byte in channel, bit in state, byte out error_flags) is
  error_flags = 0;
@@ -293,6 +295,9 @@ procedure traffic_statemachine() is
             pulse = 0;
             traffic_state = TRAFFIC_YELLOW
         end if
+        if request_temp_error then
+            traffic_state = TRAFFIC_TEMP_ERROR
+        end if
         end block
     TRAFFIC_YELLOW: block
         red = 0;
@@ -309,6 +314,9 @@ procedure traffic_statemachine() is
         if request_green then
             traffic_state = TRAFFIC_RED_YELLOW;
         end if
+        if request_temp_error then
+            traffic_state = TRAFFIC_TEMP_ERROR
+        end if
         end block
     TRAFFIC_RED_YELLOW: block
         red = 1;
@@ -321,18 +329,28 @@ procedure traffic_statemachine() is
             traffic_state = TRAFFIC_RED
         end if
         end block;
+    TRAFFIC_TEMP_ERROR: block
+        red = 0;
+        green = 0;
+        if (pulse > 1*second) then
+            yellow = ! yellow;
+            pulse = 0;
+        end if
+        if !request_temp_error then
+            traffic_state = TRAFFIC_GREEN
+        end if
+        end block;
     TRAFFIC_FAIL: block
         red = 0;
+        green = 0;
         if (pulse > 2*second) then
             yellow = ! yellow;
             pulse = 0;
         end if
-        green = 0;
         end block;
-
    end case
 
-   red_en = red; ON HW ~RED !!
+   red_en = !red; ON HW ~RED !!
    green_en = green;
    yellow_en = yellow;
 
@@ -374,6 +392,12 @@ procedure serial_statemachine() is
         end if
         if tmp=="g" then
             request_green = 0
+        end if
+        if tmp=="e" then
+            request_temp_error = 0
+        end if
+        if tmp=="E" then
+            request_temp_error = 1
         end if
         if tmp=="s" then
             serial_state = SERIAL_READ_ADDRESS
