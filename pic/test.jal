@@ -1,0 +1,55 @@
+-- ------------------------------------------------------
+-- Title: RGB-LED Interface for AmbiMar
+--
+-- Author: Peter Turczak, NC
+--
+-- Adapted-by:
+--
+-- Compiler: jalv2 >=2.4h
+--
+-- ------------------------------------------------------
+--             P I N O U T   A N D    U S A G E
+--
+-- PRI   PIN#  Signal   Signal PIN#  PRI      SEC
+--             +------   ------+   
+--           1 I VDD  \_/  VSS I 20  GND
+-- QUARTZ    2 I RA5       RA0 I 19           ICSP_DAT
+-- QUARTZ    3 I RA4       RA1 I 18  VREF     ICSP_CLK
+-- RMTE VPP  4 I RA3       RA2 I 17  
+-- YELLOW_EN 5 I RC5       RC0 I 16 RED_SENSE
+-- GREEN_EN  6 I RC4       RC1 I 15 YELLOW_SENSE
+-- RED_EN    7 I RC3       RC2 I 14 GREEN_SENSE
+--           8 I RC6       RB4 I 13 I2C_SDA 
+-- BAT_SENSE 9 I RC7       RB5 I 12 RXD
+-- TXD      10 I RB7       RB6 I 11 I2C_SCL
+--             +---------------+   
+--
+-- ------------------------------------------------------
+--
+include 16f690		-- target PICmicro
+-- This program assumes a 18.432 MHz external quartz oscillator
+pragma target OSC hs -- External quartz
+pragma target clock 11_059_200     -- oscillator frequency
+pragma target IESO DISABLED
+pragma target FCMEN DISABLED
+pragma target WDT  disabled
+pragma target MCLR internal
+const serial_hw_baudrate = 19200;
+var bit serial_ctsinv;
+var bit serial_overflow_discard=false;
+-- pin_B7_direction = OUTPUT      
+enable_digital_io()                -- disable analog I/O (if any)
+
+include serial_hw_int_cts
+serial_hw_init()
+-- serial_setup()
+
+--
+--
+pin_C5_direction  = output
+pin_B7_direction  = output
+
+forever loop
+serial_hw_write("H")          ; Be polite and say H(ello) :)
+pin_c5 = ! pin_c5
+end loop

@@ -1,0 +1,16 @@
+digraph ampel {
+   start -> test_red [label="1sec"];
+   test_red -> yellow_blink [label="Ired!=ok"];
+   test_red -> test_red_yellow  [label="1sec"];
+   test_red_yellow -> test_red_yellow_green [label="1sec"];
+   test_red_yellow -> yellow_blink [label="Ired!=ok || Iyellow!=ok"];
+   test_red_yellow_green -> green [label="1sec"];
+   test_red_yellow_green -> yellow_blink [label="Ired!=ok || Iyellow!=ok"];
+
+   start -> green [label="sum(i)~0"];
+   green -> yellow [label="request_red"];
+   yellow -> red [label="3sec"];
+   red -> red_yellow [label="request_green"];
+   red_yellow -> green [label="3sec"];
+   red -> yellow_blink [label="vbatt low || ired==0 || i(x)!=0"]
+};

@@ -1,0 +1,35 @@
+
+
+*******************************************************************************
+Sun Apr 22 19:46:06 2018
+
+
+FIT:    data read from "/tmp/tmp.5SDGjlS6CK" using ($1 - 1524414641 ):2
+        format = x:z
+        x range restricted to ["01/01/70,00:00" : "01/01/70,01:05"]
+        #datapoints = 55
+        residuals are weighted equally (unit weight)
+
+function used for fitting: f(x)
+	f(x) = A+B*x
+fitted parameters initialized with current variable values
+
+   5 6.8172143941e+01  -2.15e-05  1.87e-02    1.009878e+02  -3.017450e-03
+
+After 5 iterations the fit converged.
+final sum of squares of residuals : 68.1721
+rel. change during last iteration : -2.15187e-10
+
+degrees of freedom    (FIT_NDF)                        : 53
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : 1.13414
+variance of residuals (reduced chisquare) = WSSR/ndf   : 1.28627
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+A               = 100.988          +/- 0.3214       (0.3182%)
+B               = -0.00301745      +/- 0.0001212    (4.018%)
+
+correlation matrix of the fit parameters:
+                A      B      
+A               1.000 
+B              -0.880  1.000 
