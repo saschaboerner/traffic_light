@@ -1,26 +1,70 @@
 import json
 import hashlib
 import time
+from ConfigParser import SafeConfigParser
 from twisted.web.server import Site
+from twisted.web.client import Agent
 from twisted.web import server, resource
 from twisted.web.resource import Resource, NoResource
 from twisted.protocols import basic
-from twisted.internet import reactor, endpoints
+from twisted.internet import reactor, endpoints, task
 from twisted.web.static import File
 from trafficlight import TrafficLightSerial
 
 
 class TrafficLightMasterSlave(object):
     '''
-    Handles master/slave behaviour and synch.
+    Handles master/slave behavior and synch.
     '''
     service_class = "_http._tcp.local"
 
-    def __init__(self):
-        self.isMaster = False
+    def __init__(self, config_file_name):
+        self.config = SafeConfigParser()
+        with open(config_file_name, "r") as f:
+            self.config.read(f)
+        self.isMaster = config.getboolean("general", "master")
+        self.remote_hostname = config.get("general", "remote")
+        if self.remote_hostname is None:
+            logging.error("No remote hostname defined. No master/slave capability possible!")
+
+        self.poll_loop = task.LoopingCall(self.poll_remote)
+        self.poll_loop.start(0.25)
+        self.agent = Agent(reactor)
+        self.remote_url = "http://{}:8880/interface/status".format(self.remote_hostname).encode("ascii")
+        self.running_request = None
+        self.error_count = 0
         # Publish own service
         # TODO
     
+    def poll_remote(self):
+        '''
+        Polls remote host to get its state
+        '''
+        if self.running_request is not None:
+            self.error_count += 1
+            self.running_request.cancel()
+
+        self.running_request = self.agent.request(b"GET", self.remote_url)
+        self.running_request.addCallback(self.request_handler)
+        pass
+    
+    def request_handler(self, response):
+        d = readBody(response)
+        # TODO maybe move it until validation?
+        self.error_count = 0
+        if not self.isMaster:
+            # Only master need to really process the answer,
+            # a slave is happy when it sees the master
+            d.addCallback(self.on_slave_received)
+        else:
+            d.addCallback(self.on_master_received)
+
+    def on_slave_received(self, body):
+        pass
+
+    def on_master_received(self, body):
+        pass
+
     def on_discover(self, host):
         '''
         When discovering an external host, determine who's the master
