@@ -57,7 +57,7 @@ class TrafficLightGroup(object):
 
 class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
-    delimiter = '\n'
+    delimiter = '\n'.encode('ascii')
 
     config_map = { "min_on_current": 0,
                    "max_on_current": 1,
