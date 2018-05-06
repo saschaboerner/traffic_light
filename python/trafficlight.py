@@ -12,12 +12,16 @@ class TrafficLight(object):
     maxage = 1
 
     def __init__(self):
+        self.logger = logging.getLogger()
         self.state = 99
         self.batt_voltage = 0
         self.lamp_currents = [0]*3
         self.last_seen = 0
         self.give_way = True
         self.temp_error = False
+
+    def setLogger(self, logger):
+        self.logger = logger
 
     def seen(self):
         return (time()-self.last_seen) < self.maxage
@@ -82,12 +86,12 @@ class TrafficLightGroup(TrafficLight):
 
         if good == False:
             self.setTempError(True)
-            print "nogood"
+            self.logger.error("Temporary error")
         elif good is None:
-            print "Diverged, try to realign"
+            self.logger.info("Diverged, try to realign")
             self.sendUpdate()
         else:
-            print "good"
+            self.logger.debug("good")
             self.setTempError(False)
 
         if self.remote.seen():
@@ -116,7 +120,7 @@ class TrafficLightGroup(TrafficLight):
 
     def isGood(self):
         if False in [ self.remote.seen(), self.local.seen() ]:
-            print "a"
+            self.logger.debug("a")
             return False
         # In transistions, disregard state divergence for a while
         if self.remote.state != self.local.state:
@@ -149,16 +153,16 @@ class TrafficLightDummy(TrafficLight):
         self.run_loop.start(1) .addErrback(self.error)
 
     def sendUpdate(self):
-        print self.state
+        self.logger.debug(self.state)
 
     def error(self, err):
-        print err
+        self.logger.debug(err)
 
     def simulateFailures(self):
         if random.random() > (1 - self.fail_probability):
             self.fail_lamp = random.random()>.98
             self.fail_comm = random.random()>.7
-            print "fail_lamp={} fail_comm={}".format(self.fail_lamp, self.fail_comm)
+            self.logger.warning("fail_lamp={} fail_comm={}".format(self.fail_lamp, self.fail_comm))
 
     def reset(self):
         self.state = 0
@@ -171,6 +175,7 @@ class TrafficLightDummy(TrafficLight):
             self.last_seen = time()
         if self.fail_lamp:
             self.state = 9
+        self.logger.debug("state={}".format(self.state))
         if self.state < 3:
             self.state += 1
         elif self.state == 5:
@@ -183,10 +188,10 @@ class TrafficLightDummy(TrafficLight):
                 self.state = 4
         elif self.state == 4:
             self.state = 5
-        if self.state == 8 and self.temp_error == False:
+        elif self.state == 8 and self.temp_error == False:
             self.state = 3
-        if self.temp_error:
-            print "temperr"
+        elif self.temp_error:
+            self.logger.warning("Got temporary error")
             self.state = 8
         self.lamp_currents = {
             0:[60,0,0],
@@ -223,7 +228,7 @@ class TrafficLightRemote(TrafficLight):
             self.running_request.addCallback(self.request_handler)
             self.running_request.addErrback(log.err)
         except Exception as e:
-            print ">>>>{}".format(e)
+            self.logger.debug(">>>>{}".format(e))
     
     def request_handler(self, response):
         d = readBody(response)
