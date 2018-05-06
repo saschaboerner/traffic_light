@@ -20,7 +20,7 @@ root = File("../website/")
 interface = NoResource()
 interface.putChild("status", TrafficLightWeb(local_light))
 
-root.putChild("interface", interface)
+root.putChild("local", interface)
 root.putChild("auth", Authenticator())
 
 factory = Site(root)

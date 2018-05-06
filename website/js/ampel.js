@@ -63,5 +63,7 @@ traffic_light = function (subdir, root_element) {
 
 $("document").ready(function()
 {
-    new traffic_light("/interface/status", $("#light1"));
+    new traffic_light("/interface/local", $("#light1"));
+    new traffic_light("/interface/remote", $("#light2"));
+    new traffic_light("/interface/group", $("#lightgroup"));
 });
