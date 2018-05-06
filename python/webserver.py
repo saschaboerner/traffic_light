@@ -84,7 +84,7 @@ class TrafficLightWeb(resource.Resource):
     def render_GET(self, request):
         self.numberRequests += 1
         request.setHeader(b"content-type", b"text/plain")
-        content = local_light.to_json()
+        content = self.localLight.to_json()
         return content.encode("utf-8")
 
     def render_POST(self, request):
@@ -136,21 +136,3 @@ class Authenticator(resource.Resource, TransportWrapper):
 
     def render_GET(self, request):
         return "hallo"
-
-local_light = TrafficLightSerial.open("/dev/serial0")
-
-root = File("../website/")
-root.putChild("foo", File("/tmp"))
-
-interface = NoResource()
-#interface.putChild("give_way", GiveWay(local_light))
-interface.putChild("status", TrafficLightWeb(local_light))
-
-root.putChild("interface", interface)
-root.putChild("auth", Authenticator())
-
-
-factory = Site(root)
-endpoint = endpoints.TCP4ServerEndpoint(reactor, 8880)
-endpoint.listen(factory)
-reactor.run()

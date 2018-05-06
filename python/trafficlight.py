@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 from twisted.internet.serialport import SerialPort
 from twisted.internet import reactor, task
 from twisted.web.client import Agent, readBody
@@ -15,6 +16,7 @@ class TrafficLight(object):
         self.batt_voltage = 0
         self.lamp_currents = [0]*3
         self.last_seen = 0
+        self.give_way = True
 
     def seen(self):
         return (time()-self.last_seen) < self.maxage
@@ -62,6 +64,51 @@ class TrafficLightGroup(object):
         if not (self.remote.state != self.local.state):
             return None
         return True
+
+class TrafficLightDummy(TrafficLight):
+    def __init__(self, fail_probability):
+        TrafficLight.__init__(self)
+        self.fail_loop = task.LoopingCall(self.simulate_failures)
+        self.run_loop = task.LoopingCall(self.run)
+        self.fail_probability = fail_probability
+        self.state=0
+        self.fail_loop.start(.5)
+        self.run_loop.start(1)
+
+    def simulate_failures(self):
+        try:
+                if random.random() > (1 - self.fail_probability):
+                    self.state = 9
+        except Exception as e:
+                print "error: {}".format(e)
+        print "Hier"
+
+    def run(self):
+        print "da state={}".format(self.state)
+        if self.state < 3:
+            self.state += 1
+        elif self.state == 5:
+            if self.give_way:
+                self.state = 6
+        elif self.state == 6:
+                self.state = 3
+        elif self.state == 3:
+            if not self.give_way:
+                self.state = 4
+        elif self.state == 4:
+            self.state = 5
+
+        self.lamp_currents = {
+            0:[60,0,0],
+            1:[60,60,0],
+            2:[60,60,60],
+            3:[0,0,60],
+            4:[0,60,0],
+            5:[60,0,0],
+            6:[60,60,0],
+            8:[0,30,0],
+            9:[0,25,0],
+            }[self.state]
 
 class TrafficLightRemote(TrafficLight):
     def __init__(self, url, interval):
