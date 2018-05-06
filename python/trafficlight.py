@@ -17,6 +17,7 @@ class TrafficLight(object):
         self.lamp_currents = [0]*3
         self.last_seen = 0
         self.give_way = True
+        self.temp_error = False
 
     def seen(self):
         return (time()-self.last_seen) < self.maxage
@@ -45,46 +46,131 @@ class TrafficLight(object):
     def isGood(self):
         return (self.state != 9) and (self.seen())
 
+    def setTempError(self, error_state):
+        assert type(error_state) is bool
+        self.temp_error = error_state
+
+
     def __str__(self):
         return "TrafficLight(state={}, batt_voltage={}, lamp_currents={})".format(self.state, self.batt_voltage, self.lamp_currents)
-class TrafficLightGroup(object):
-    def __init__(self, iAmMaster, local, remote):
-        self.iAmMaster = iAmMaster
+
+    def reset(self):
+        '''
+        Resets the traffic light
+        '''
+        pass
+
+class TrafficLightGroup(TrafficLight):
+    def __init__(self, i_am_master, local, remote, max_diverge = 2):
+        TrafficLight.__init__(self)
+        self.i_am_master = i_am_master
         self.remote = remote
         self.local = local
+        self.max_diverge = max_diverge
+        self.start_diverge = None
+        self.check_loop = task.LoopingCall(self.check)
+        self.check_loop.start(.25)
+
+    def check(self):
+        """
+        Performs a routine sanity check of the system,
+        copies external traffic lights state into own,
+        if the remote state is known. Otherwise use local
+        state
+        """
+        good = self.isGood()
+
+        if good == False:
+            self.setTempError(True)
+            print "nogood"
+        elif good is None:
+            print "Diverged, try to realign"
+            self.sendUpdate()
+        else:
+            print "good"
+            self.setTempError(False)
+
+        if self.remote.seen():
+            source = self.remote
+        else:
+            source = self.local
+
+        self.state = source.state
+        self.lamp_currents = source.lamp_currents
+
+
+    def setTempError(self, state):
+        self.local.setTempError(state)
+        if self.i_am_master:
+            self.remote.setTempError(state)
 
     def setGreen(self, give_way):
-        self.remote.setGreen(give_way)
-        self.local.setGreen(give_way)
+        if self.i_am_master:
+            self.give_way = give_way
+            self.sendUpdate()
+
+    def sendUpdate(self):
+        if self.i_am_master:
+            self.remote.setGreen(self.give_way)
+            self.local.setGreen(self.give_way)
 
     def isGood(self):
-        if not self.remote.seen():
+        if False in [ self.remote.seen(), self.local.seen() ]:
+            print "a"
             return False
-        # In transistions, flag value as invalid..
-        if not (self.remote.state != self.local.state):
+        # In transistions, disregard state divergence for a while
+        if self.remote.state != self.local.state:
+            if self.start_diverge is None:
+                self.start_diverge = time()
+            if (time() - self.start_diverge) > self.max_diverge:
+                return "maxdiverge"
+                return False
             return None
+        else:
+            self.start_diverge = None
+        if 9 in [self.local.state, self.remote.state]:
+            # If an error was detected on either side, fail here, too
+            return "err"
+            return False
         return True
+
 
 class TrafficLightDummy(TrafficLight):
     def __init__(self, fail_probability):
         TrafficLight.__init__(self)
-        self.fail_loop = task.LoopingCall(self.simulate_failures)
+        self.fail_loop = task.LoopingCall(self.simulateFailures)
         self.run_loop = task.LoopingCall(self.run)
         self.fail_probability = fail_probability
         self.state=0
-        self.fail_loop.start(.5)
-        self.run_loop.start(1)
+        self.fail_comm = False
+        self.fail_lamp = False
 
-    def simulate_failures(self):
-        try:
-                if random.random() > (1 - self.fail_probability):
-                    self.state = 9
-        except Exception as e:
-                print "error: {}".format(e)
-        print "Hier"
+        self.fail_loop.start(.5) .addErrback(self.error)
+        self.run_loop.start(1) .addErrback(self.error)
+
+    def sendUpdate(self):
+        print self.state
+
+    def error(self, err):
+        print err
+
+    def simulateFailures(self):
+        if random.random() > (1 - self.fail_probability):
+            self.fail_lamp = random.random()>.98
+            self.fail_comm = random.random()>.7
+            print "fail_lamp={} fail_comm={}".format(self.fail_lamp, self.fail_comm)
+
+    def reset(self):
+        self.state = 0
+        self.fail_comm = False
+        self.fail_lamp = False
 
     def run(self):
-        print "da state={}".format(self.state)
+        self.batt_voltage = 12 + random.random()*1.5
+        if not self.fail_comm:
+            self.last_seen = time()
+        if self.fail_lamp:
+            self.state = 9
         if self.state < 3:
             self.state += 1
         elif self.state == 5:
@@ -97,7 +183,11 @@ class TrafficLightDummy(TrafficLight):
                 self.state = 4
         elif self.state == 4:
             self.state = 5
-
+        if self.state == 8 and self.temp_error == False:
+            self.state = 3
+        if self.temp_error:
+            print "temperr"
+            self.state = 8
         self.lamp_currents = {
             0:[60,0,0],
             1:[60,60,0],
