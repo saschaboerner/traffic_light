@@ -4,7 +4,7 @@ traffic_light = function (subdir, root_element) {
 	this.subdir = subdir;
 	this.root_element = root_element;
 	this.run=function(interval){
-		$.ajax(this.subdir, {
+		$.ajax(me.subdir, {
 			dataType: "json",
 			timeout: interval,
 			success: function(data){
@@ -17,7 +17,7 @@ traffic_light = function (subdir, root_element) {
 		window.setTimeout(function(){me.run(interval);}, interval );
 		};
 	this.set_way=function(value){
-			$.post(this.subdir,
+			$.post(me.subdir,
 				{
 					"giveway": value
 				},
@@ -26,33 +26,33 @@ traffic_light = function (subdir, root_element) {
 	this.error=function(textStatus){
 		me.error_count++;
 		if (me.error_count>4){
-			this.red_circle.hide();
-			this.yellow_circle.hide();
-			this.green_circle.hide();
+			me.red_circle.hide();
+			me.yellow_circle.hide();
+			me.green_circle.hide();
 		}
 	};
 	this.got_answer=function(data){
 		me.error_count = 0;
-		$(".battvoltage", this.root_element).val(data.batt_voltage/100.0);
-		if (data.lamp_currents[0]>10) this.red_circle.show(); else this.red_circle.hide();
-		if (data.lamp_currents[1]>10) this.yellow_circle.show(); else this.yellow_circle.hide();
-		if (data.lamp_currents[2]>10) this.green_circle.show(); else this.green_circle.hide();
+		$(".battvoltage", me.root_element).val(data.batt_voltage/100.0);
+		if (data.lamp_currents[0]>10) me.red_circle.show(); else me.red_circle.hide();
+		if (data.lamp_currents[1]>10) me.yellow_circle.show(); else me.yellow_circle.hide();
+		if (data.lamp_currents[2]>10) me.green_circle.show(); else me.green_circle.hide();
 
 	};
 	$.ajax("/image/ampel.svg",
 		{
 		dataType:"text",
 		success:function(data){
-			$(".tlpicture", this.root_element).replaceWith(data);
-			me.red_circle = $(".red", this.root_element);
-			me.yellow_circle = $(".yellow", this.root_element);
-			me.green_circle = $(".green", this.root_element);
+			$(".tlpicture", me.root_element).replaceWith(data);
+			me.red_circle = $(".red", me.root_element);
+			me.yellow_circle = $(".yellow", me.root_element);
+			me.green_circle = $(".green", me.root_element);
 			me.error_count = 0;
+            // Now finally run the stuff after loading
+            me.run(250);
 			},
 		
 		})
-	// Now finally run the stuff
-	me.run(250);
 	$(".setred",this.root_element).click( function(){
 		me.set_way(0);
 	});
