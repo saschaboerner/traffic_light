@@ -52,6 +52,8 @@ class TrafficLight(object):
 
     def setTempError(self, error_state):
         assert type(error_state) is bool
+        if error_state:
+            self.logger.debug("Recevied temp error")
         self.temp_error = error_state
 
 
@@ -65,7 +67,7 @@ class TrafficLight(object):
         pass
 
 class TrafficLightGroup(TrafficLight):
-    def __init__(self, i_am_master, local, remote, max_diverge = 2):
+    def __init__(self, i_am_master, local, remote, max_diverge = 5):
         TrafficLight.__init__(self)
         self.i_am_master = i_am_master
         self.remote = remote
@@ -134,7 +136,6 @@ class TrafficLightGroup(TrafficLight):
             self.start_diverge = None
         if 9 in [self.local.state, self.remote.state]:
             # If an error was detected on either side, fail here, too
-            return "err"
             return False
         return True
 
