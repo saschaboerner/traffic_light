@@ -12,7 +12,7 @@ from twisted.protocols import basic
 from twisted.internet import reactor, endpoints, task
 from twisted.web.static import File
 from trafficlight import lightTypes
-from webserver import TrafficLightWeb
+from webserver import TrafficLightWeb, JSONAnswer
 
 if len(sys.argv)<2:
     print "Please start with a config file name"
@@ -30,7 +30,7 @@ sections = conf.sections()
 if 'web' not in sections:
     port = 8880
 else:
-    port = conf.get('web','http_port')
+    port = conf.getint('web','http_port')
 
 light_sections = sections[:]
 light_sections.remove('web')
@@ -64,7 +64,7 @@ root = File("../website/")
 
 print lights
 
-interface = NoResource()
+interface = JSONAnswer(lights.keys())
 #interface.putChild("status", TrafficLightWeb(local_light))
 root.putChild("interface", interface)
 #root.putChild("auth", Authenticator())
