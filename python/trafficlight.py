@@ -20,6 +20,12 @@ class TrafficLight(object):
         self.give_way = True
         self.temp_error = False
 
+    def dereference(self, names):
+        '''
+        Dereferece symbolic names (if needed)
+        '''
+        pass
+
     def setLogger(self, logger):
         self.logger = logger
 
@@ -34,7 +40,7 @@ class TrafficLight(object):
             "good":self.isGood()
             }
         return json.dumps(data)
-    
+
     def from_json(self, raw):
         data = json.loads(raw)
         (self.state, self.batt_voltage, self.lamp_currents) = ( data["state"], data["batt_voltage"], data["lamp_currents"] )
@@ -67,6 +73,12 @@ class TrafficLight(object):
         pass
 
 class TrafficLightGroup(TrafficLight):
+    @classmethod
+    def open(cls, name, i_am_master, local, remote, max_diverge = 5):
+        r = cls(i_am_master, local, remote, max_diverge)
+        r.setLogger( logging.getLogger(name) )
+        return r
+
     def __init__(self, i_am_master, local, remote, max_diverge = 5):
         TrafficLight.__init__(self)
         self.i_am_master = i_am_master
@@ -74,8 +86,24 @@ class TrafficLightGroup(TrafficLight):
         self.local = local
         self.max_diverge = max_diverge
         self.start_diverge = None
+        self.dereferenced = False
         self.check_loop = task.LoopingCall(self.check)
-        self.check_loop.start(.25)
+        self.check_loop.start(.25).addErrback(log.err)
+
+    def dereference(self, names):
+        '''
+        Dereferece symbolic names (if needed)
+        '''
+        if self.local in names:
+            self.local = names[self.local]
+        else:
+            raise ValueError("Cannot find name {} for local.".format(self.local))
+
+        if self.remote in names:
+            self.remote = names[self.remote]
+        else:
+            raise ValueError("Cannot find name {} for remote.".format(self.remote))
+        self.dereferenced = True
 
     def check(self):
         """
@@ -84,6 +112,10 @@ class TrafficLightGroup(TrafficLight):
         if the remote state is known. Otherwise use local
         state
         """
+        if not self.dereferenced:
+            logging.debug("Cannot check yet, not dereferenced yet")
+            return None
+
         good = self.isGood()
 
         if good == False:
@@ -141,6 +173,12 @@ class TrafficLightGroup(TrafficLight):
 
 
 class TrafficLightDummy(TrafficLight):
+    @classmethod
+    def open(cls, name, fail_probability):
+        r = cls(float(fail_probability))
+        r.setLogger( logging.getLogger(name) )
+        return r
+
     def __init__(self, fail_probability):
         TrafficLight.__init__(self)
         self.fail_loop = task.LoopingCall(self.simulateFailures)
@@ -161,8 +199,8 @@ class TrafficLightDummy(TrafficLight):
 
     def simulateFailures(self):
         if random.random() > (1 - self.fail_probability):
-            self.fail_lamp = random.random()>.98
-            self.fail_comm = random.random()>.7
+            self.fail_lamp = random.random()>.5
+            self.fail_comm = random.random()>.5
             self.logger.warning("fail_lamp={} fail_comm={}".format(self.fail_lamp, self.fail_comm))
 
     def reset(self):
@@ -207,6 +245,12 @@ class TrafficLightDummy(TrafficLight):
             }[self.state]
 
 class TrafficLightRemote(TrafficLight):
+    @classmethod
+    def open(cls, name, url, interval):
+        r = cls(url, float(interval))
+        r.setLogger( logging.getLogger(name) )
+        return r
+
     def __init__(self, url, interval):
         TrafficLight.__init__(self)
         self.poll_loop = task.LoopingCall(self.poll_remote)
@@ -214,8 +258,8 @@ class TrafficLightRemote(TrafficLight):
         self.remote_url = url
         self.running_request = None
         self.error_count = 0
-        self.poll_loop.start(interval)
-        
+        self.poll_loop.start(interval).addErrback(log.err)
+
     def poll_remote(self):
         '''
         Polls remote host to get its state
@@ -230,7 +274,7 @@ class TrafficLightRemote(TrafficLight):
             self.running_request.addErrback(log.err)
         except Exception as e:
             self.logger.debug(">>>>{}".format(e))
-    
+
     def request_handler(self, response):
         d = readBody(response)
         # TODO maybe move it until validation?
@@ -254,8 +298,9 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
                    }
 
     @classmethod
-    def open(cls, port, reset_pin=None, reactor=reactor):
+    def open(cls, name, port, reset_pin=None, reactor=reactor):
         local_light = cls()
+        local_light.setLogger( logging.getLogger(name) )
         serial = SerialPort(baudrate=19200, deviceNameOrPortNumber=port, protocol=local_light, reactor=reactor)
         local_light.setSerial(serial)
         local_light.setReset(reset_pin)
@@ -302,3 +347,9 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
     def serviceWatchdog(self):
         self.sendUpdate()
+
+lightTypes={'serial':TrafficLightSerial,
+        'group':TrafficLightGroup,
+        'dummy':TrafficLightDummy,
+        'remote':TrafficLightRemote
+    }
