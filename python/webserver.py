@@ -138,11 +138,12 @@ class Authenticator(resource.Resource, TransportWrapper):
         return "hallo"
 
 class JSONAnswer(resource.Resource):
-    isLeaf = True
+    isLeaf = False
     numberRequests = 0
 
     def __init__(self, to_be_jsoned):
         self.data = to_be_jsoned
+        resource.Resource.__init__(self)
 
     # HTTP side
     def render_GET(self, request):

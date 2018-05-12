@@ -43,6 +43,7 @@ class TrafficLight(object):
 
     def from_json(self, raw):
         data = json.loads(raw)
+        print data
         (self.state, self.batt_voltage, self.lamp_currents) = ( data["state"], data["batt_voltage"], data["lamp_currents"] )
 
     def setConfig(self, param, value):

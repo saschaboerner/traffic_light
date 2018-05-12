@@ -56,9 +56,6 @@ for s in light_sections:
         continue
     lights[s] = l
 
-for s in lights:
-    # After init, dereference symbolic names
-    lights[s].dereference(lights)
 
 root = File("../website/")
 
@@ -67,6 +64,12 @@ print lights
 interface = JSONAnswer(lights.keys())
 #interface.putChild("status", TrafficLightWeb(local_light))
 root.putChild("interface", interface)
+
+for s in lights:
+    # After init, dereference symbolic names
+    lights[s].dereference(lights)
+    # Finally add them to the web tree
+    interface.putChild(s, TrafficLightWeb(lights[s]))
 #root.putChild("auth", Authenticator())
 
 factory = Site(root)
