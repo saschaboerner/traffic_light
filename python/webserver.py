@@ -89,14 +89,27 @@ class TrafficLightWeb(resource.Resource):
 
     def render_POST(self, request):
         data = request.args
+        handled = False
+        # Do not write masters
+        if not self.localLight.web_writeable:
+            return "not writeable"
+
         if 'giveway' in data:
             try:
                 value = int(data['giveway'][0])
             except:
                 return "value error"
             self.localLight.setGreen(value)
-        else:
+            handled = True
+
+        if 'temp_error' in data:
+            self.localLight.setTempError(bool(int(data['temp_error'][0])))
+            handled = True
+
+        if not handled:
             return "not ok"
+        else:
+            return "ok"
 
 class TransportWrapper(object):
     secret = "AchWieGutDassNiemandWeiss"

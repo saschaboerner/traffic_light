@@ -1,12 +1,17 @@
 import json
 import logging
 import random
+import urllib
+from StringIO import StringIO
+from twisted.web.client import FileBodyProducer
 from twisted.internet.serialport import SerialPort
 from twisted.internet import reactor, task
 from twisted.web.client import Agent, readBody
 from twisted.protocols import basic
 from twisted.python import log
 from time import time
+#from zope.interface import implements
+
 
 class TrafficLight(object):
     maxage = 1
@@ -19,6 +24,8 @@ class TrafficLight(object):
         self.last_seen = 0
         self.give_way = True
         self.temp_error = False
+        self.read_only = False
+        self.web_writeable = False
 
     def dereference(self, names):
         '''
@@ -28,6 +35,9 @@ class TrafficLight(object):
 
     def setLogger(self, logger):
         self.logger = logger
+
+    def setReadOnly(self, read_only):
+        self.read_only = read_only
 
     def seen(self):
         return (time()-self.last_seen) < self.maxage
@@ -104,6 +114,8 @@ class TrafficLightGroup(TrafficLight):
             self.remote = names[self.remote]
         else:
             raise ValueError("Cannot find name {} for remote.".format(self.remote))
+        self.remote.setReadOnly(not self.i_am_master)
+        self.web_writeable = not self.i_am_master
         self.dereferenced = True
 
     def check(self):
@@ -136,7 +148,6 @@ class TrafficLightGroup(TrafficLight):
 
         self.state = source.state
         self.lamp_currents = source.lamp_currents
-
 
     def setTempError(self, state):
         self.local.setTempError(state)
@@ -193,7 +204,10 @@ class TrafficLightDummy(TrafficLight):
         self.run_loop.start(1) .addErrback(self.error)
 
     def sendUpdate(self):
-        self.logger.debug(self.state)
+        if self.read_only:
+            self.logger.debug("Read-only: No update:")
+        else:
+            self.logger.debug(self.state)
 
     def error(self, err):
         self.logger.debug(err)
@@ -261,6 +275,36 @@ class TrafficLightRemote(TrafficLight):
         self.error_count = 0
         self.poll_loop.start(interval).addErrback(log.err)
 
+    def sendUpdate(self):
+        if self.read_only:
+            self.logger.debug("I am readonly, no update will be sent!")
+            return
+
+        try:
+            state = {'give_way': int(self.give_way), 'temp_error':int(self.temp_error) }
+
+            #body = StringProducer(urllib.urlencode(state))
+            body = FileBodyProducer(StringIO(urllib.urlencode(state)))
+            self.running_request = self.agent.request(b"POST", self.remote_url,
+                bodyProducer=body)
+            self.running_request.addCallback(self.update_answer_handler)
+            self.running_request.addErrback(log.err)
+        except Exception as e:
+            self.logger.error(">>>>{}".format(e))
+
+    def update_answer_handler(self, response):
+        d = readBody(response)
+        # TODO maybe move it until validation?
+        self.error_count = 0
+        d.addCallback(self.on_update_answer_received)
+        d.addErrback(log.err)
+        self.running_request = None
+        return d
+
+    def on_update_answer_received(self, data):
+        if not data.strip()=="ok":
+            logging.error("Something went wrong trying to update remote..")
+
     def poll_remote(self):
         '''
         Polls remote host to get its state
@@ -286,6 +330,7 @@ class TrafficLightRemote(TrafficLight):
         return d
 
     def on_data_received(self, body):
+        logging.debug("body={}".format(body))
         self.from_json(body)
         self.last_seen = time()
 
@@ -345,6 +390,10 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
             self.sendLine("G")
         else:
             self.sendLine("g")
+        if self.temp_error:
+            self.sendLine("e")
+        else:
+            self.sendLine("E")
 
     def serviceWatchdog(self):
         self.sendUpdate()
