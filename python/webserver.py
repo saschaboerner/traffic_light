@@ -91,7 +91,12 @@ class TrafficLightWeb(resource.Resource):
         data = request.args
         handled = False
         # Do not write masters
-        if not self.localLight.web_writeable:
+        try:
+            key = data['key'][0]
+        except KeyError:
+            key = None
+
+        if not self.localLight.isWritable(key):
             return "not writeable"
 
         if 'giveway' in data:

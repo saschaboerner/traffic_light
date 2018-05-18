@@ -26,6 +26,19 @@ class TrafficLight(object):
         self.temp_error = False
         self.read_only = False
         self.web_writeable = False
+        self.group_key = None
+
+    def setGroupKey(self, key):
+        self.group_key = key
+
+    def isWritable(self, key):
+        if self.web_writeable:
+            return True
+        if self.group_key is None:
+            return False
+        if self.group_key == key:
+            return True
+        return False
 
     def dereference(self, names):
         '''
@@ -85,12 +98,12 @@ class TrafficLight(object):
 
 class TrafficLightGroup(TrafficLight):
     @classmethod
-    def open(cls, name, i_am_master, local, remote, max_diverge = 5):
-        r = cls(i_am_master, local, remote, max_diverge)
+    def open(cls, name, i_am_master, local, remote, max_diverge = 5, group_key=None):
+        r = cls(i_am_master, local, remote, max_diverge, group_key)
         r.setLogger( logging.getLogger(name) )
         return r
 
-    def __init__(self, i_am_master, local, remote, max_diverge = 5):
+    def __init__(self, i_am_master, local, remote, group_key, max_diverge = 5):
         TrafficLight.__init__(self)
         self.i_am_master = i_am_master
         self.remote = remote
@@ -98,6 +111,7 @@ class TrafficLightGroup(TrafficLight):
         self.max_diverge = max_diverge
         self.start_diverge = None
         self.dereferenced = False
+        self.setGroupKey(group_key)
         self.check_loop = task.LoopingCall(self.check)
         self.check_loop.start(.25).addErrback(log.err)
 
@@ -115,7 +129,8 @@ class TrafficLightGroup(TrafficLight):
         else:
             raise ValueError("Cannot find name {} for remote.".format(self.remote))
         self.remote.setReadOnly(not self.i_am_master)
-        self.web_writeable = not self.i_am_master
+        self.remote.setGroupKey(self.group_key)
+        self.web_writeable = self.i_am_master
         self.dereferenced = True
 
     def check(self):
@@ -207,7 +222,7 @@ class TrafficLightDummy(TrafficLight):
         if self.read_only:
             self.logger.debug("Read-only: No update:")
         else:
-            self.logger.debug(self.state)
+            self.logger.debug("Would update: {}".format(self.state))
 
     def error(self, err):
         self.logger.debug(err)
@@ -282,6 +297,8 @@ class TrafficLightRemote(TrafficLight):
 
         try:
             state = {'give_way': int(self.give_way), 'temp_error':int(self.temp_error) }
+            if self.group_key is not None:
+                state['key'] = self.group_key
 
             #body = StringProducer(urllib.urlencode(state))
             body = FileBodyProducer(StringIO(urllib.urlencode(state)))
@@ -303,7 +320,7 @@ class TrafficLightRemote(TrafficLight):
 
     def on_update_answer_received(self, data):
         if not data.strip()=="ok":
-            logging.error("Something went wrong trying to update remote..")
+            logging.error("Something went wrong trying to update remote.. Answer was:{}".format(data.strip()))
 
     def poll_remote(self):
         '''
