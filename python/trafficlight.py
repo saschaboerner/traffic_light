@@ -15,7 +15,6 @@ from time import time
 
 
 class TrafficLight(object):
-    maxage = 1
 
     def __init__(self):
         self.logger = logging.getLogger()
@@ -23,6 +22,7 @@ class TrafficLight(object):
         self.batt_voltage = 0
         self.lamp_currents = [0]*3
         self.last_seen = 0
+        self.maxage = 2
         self.give_way = True
         self.temp_error = False
         self.read_only = False
@@ -80,13 +80,14 @@ class TrafficLight(object):
     def setGreen(self, give_way):
         assert type(give_way) in ( bool, int )
         give_way = bool(give_way)
-        if give_way:
-            self.logger.debug("Should give way")
-        else:
-            self.logger.debug("Should CLOSE way")
+        if self.give_way != give_way:
+            if give_way:
+                self.logger.debug("Should give way")
+            else:
+                self.logger.debug("Should CLOSE way")
 
-        self.give_way = give_way
-        self.sendUpdate()
+            self.give_way = give_way
+            self.sendUpdate()
 
     def isGood(self):
         return (self.state != 9) and (self.seen())
@@ -202,7 +203,10 @@ class TrafficLightGroup(TrafficLight):
 
     def isGood(self):
         if False in [ self.remote.seen(), self.local.seen() ]:
-            self.logger.debug("a")
+            if not self.remote.seen():
+                self.logger.debug("Remote not seen!")
+            if not self.local.seen():
+                self.logger.debug("Remote not seen!")
             return False
         # In transistions, disregard state divergence for a while
         if self.remote.state != self.local.state:
@@ -237,7 +241,7 @@ class TrafficLightDummy(TrafficLight):
         self.fail_lamp = False
 
         self.fail_loop.start(.5) .addErrback(self.error)
-        self.run_loop.start(1) .addErrback(self.error)
+        self.run_loop.start(2) .addErrback(self.error)
 
     def sendUpdate(self):
         if self.read_only:
