@@ -94,9 +94,13 @@ class TrafficLight(object):
     def setTempError(self, error_state):
         assert type(error_state) in ( bool, int )
         error_state = bool(error_state)
-        if error_state:
-            self.logger.debug("Recevied temp error")
-        self.temp_error = error_state
+        if self.temp_error != error_state:
+            if error_state:
+                self.logger.debug("Received temp error")
+            else:
+                self.logger.debug("No temp error")
+            self.temp_error = error_state
+            self.sendUpdate()
 
 
     def __str__(self):
@@ -110,7 +114,7 @@ class TrafficLight(object):
 
 class TrafficLightGroup(TrafficLight):
     @classmethod
-    def open(cls, name, i_am_master, local, remote, max_diverge = 5, group_key=None):
+    def open(cls, name, i_am_master, local, remote, max_diverge = 10, group_key=None):
         if str(i_am_master).upper() in ("YES", "TRUE", "1"):
             i_am_master = True
         else:
@@ -173,7 +177,8 @@ class TrafficLightGroup(TrafficLight):
 
         if self.remote.seen() and not self.i_am_master:
             self.logger.info("Will try to sync from master remote.give_way={}, remote.temp_error={}".format(self.remote.temp_error, self.remote.give_way))
-            self.setTempError(self.remote.temp_error)
+            if good:
+                self.setTempError(self.remote.temp_error)
             self.setGreen(self.remote.give_way)
             self.sendUpdate()
 
@@ -406,9 +411,9 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
         else:
             self.sendLine("g")
         if self.temp_error:
-            self.sendLine("e")
-        else:
             self.sendLine("E")
+        else:
+            self.sendLine("e")
 
     def serviceWatchdog(self):
         self.sendUpdate()
