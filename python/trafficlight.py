@@ -2,6 +2,7 @@ import json
 import logging
 import random
 import urllib
+import traceback
 from StringIO import StringIO
 from twisted.web.client import FileBodyProducer
 from twisted.internet.serialport import SerialPort
@@ -60,7 +61,9 @@ class TrafficLight(object):
             "state":self.state,
             "batt_voltage":self.batt_voltage,
             "lamp_currents":self.lamp_currents,
-            "good":self.isGood()
+            "good":self.isGood(),
+            "give_way":self.give_way,
+            "temp_error":self.give_way
             }
         return json.dumps(data)
 
@@ -68,12 +71,20 @@ class TrafficLight(object):
         data = json.loads(raw)
         print data
         (self.state, self.batt_voltage, self.lamp_currents) = ( data["state"], data["batt_voltage"], data["lamp_currents"] )
+        (self.give_way, self.temp_error) = ( data["give_way"], data["temp_error"] )
 
     def setConfig(self, param, value):
         # Dummy to be overloaded by real implementations
         pass
 
     def setGreen(self, give_way):
+        assert type(give_way) in ( bool, int )
+        give_way = bool(give_way)
+        if give_way:
+            self.logger.debug("Should give way")
+        else:
+            self.logger.debug("Should CLOSE way")
+
         self.give_way = give_way
         self.sendUpdate()
 
@@ -81,7 +92,8 @@ class TrafficLight(object):
         return (self.state != 9) and (self.seen())
 
     def setTempError(self, error_state):
-        assert type(error_state) is bool
+        assert type(error_state) in ( bool, int )
+        error_state = bool(error_state)
         if error_state:
             self.logger.debug("Recevied temp error")
         self.temp_error = error_state
@@ -99,7 +111,11 @@ class TrafficLight(object):
 class TrafficLightGroup(TrafficLight):
     @classmethod
     def open(cls, name, i_am_master, local, remote, max_diverge = 5, group_key=None):
-        r = cls(i_am_master, local, remote, max_diverge, group_key)
+        if str(i_am_master).upper() in ("YES", "TRUE", "1"):
+            i_am_master = True
+        else:
+            i_am_master = False
+        r = cls(i_am_master, local, remote, group_key, max_diverge)
         r.setLogger( logging.getLogger(name) )
         return r
 
@@ -151,10 +167,15 @@ class TrafficLightGroup(TrafficLight):
             self.logger.error("Temporary error")
         elif good is None:
             self.logger.info("Diverged, try to realign")
-            self.sendUpdate()
         else:
             self.logger.debug("good")
             self.setTempError(False)
+
+        if self.remote.seen() and not self.i_am_master:
+            self.logger.info("Will try to sync from master remote.give_way={}, remote.temp_error={}".format(self.remote.temp_error, self.remote.give_way))
+            self.setTempError(self.remote.temp_error)
+            self.setGreen(self.remote.give_way)
+            self.sendUpdate()
 
         if self.remote.seen():
             source = self.remote
@@ -165,19 +186,14 @@ class TrafficLightGroup(TrafficLight):
         self.lamp_currents = source.lamp_currents
 
     def setTempError(self, state):
-        self.local.setTempError(state)
-        if self.i_am_master:
-            self.remote.setTempError(state)
-
-    def setGreen(self, give_way):
-        if self.i_am_master:
-            self.give_way = give_way
-            self.sendUpdate()
+        self.temp_error = state
+        self.sendUpdate()
+        #if self.i_am_master:
 
     def sendUpdate(self):
-        if self.i_am_master:
-            self.remote.setGreen(self.give_way)
-            self.local.setGreen(self.give_way)
+        #if not self.i_am_master:
+        self.local.setGreen(self.give_way)
+        self.local.setTempError(self.temp_error)
 
     def isGood(self):
         if False in [ self.remote.seen(), self.local.seen() ]:
@@ -290,25 +306,6 @@ class TrafficLightRemote(TrafficLight):
         self.error_count = 0
         self.poll_loop.start(interval).addErrback(log.err)
 
-    def sendUpdate(self):
-        if self.read_only:
-            self.logger.debug("I am readonly, no update will be sent!")
-            return
-
-        try:
-            state = {'give_way': int(self.give_way), 'temp_error':int(self.temp_error) }
-            if self.group_key is not None:
-                state['key'] = self.group_key
-
-            #body = StringProducer(urllib.urlencode(state))
-            body = FileBodyProducer(StringIO(urllib.urlencode(state)))
-            self.running_request = self.agent.request(b"POST", self.remote_url,
-                bodyProducer=body)
-            self.running_request.addCallback(self.update_answer_handler)
-            self.running_request.addErrback(log.err)
-        except Exception as e:
-            self.logger.error(">>>>{}".format(e))
-
     def update_answer_handler(self, response):
         d = readBody(response)
         # TODO maybe move it until validation?
@@ -347,7 +344,7 @@ class TrafficLightRemote(TrafficLight):
         return d
 
     def on_data_received(self, body):
-        logging.debug("body={}".format(body))
+        self.logger.debug("body={}".format(body))
         self.from_json(body)
         self.last_seen = time()
 
@@ -367,6 +364,7 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
         serial = SerialPort(baudrate=19200, deviceNameOrPortNumber=port, protocol=local_light, reactor=reactor)
         local_light.setSerial(serial)
         local_light.setReset(reset_pin)
+        local_light.sendUpdate()
         return local_light
 
     def setSerial(self, serial):
