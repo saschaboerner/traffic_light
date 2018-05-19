@@ -212,6 +212,7 @@ const TRAFFIC_GREEN = 3;
 const TRAFFIC_YELLOW = 4;
 const TRAFFIC_RED = 5;
 const TRAFFIC_RED_YELLOW = 6;
+const TRAFFIC_TEMP_ERROR_DARK = 7;
 const TRAFFIC_TEMP_ERROR = 8;
 const TRAFFIC_FAIL = 9;
 
@@ -332,12 +333,22 @@ procedure traffic_statemachine() is
     TRAFFIC_TEMP_ERROR: block
         red = 0;
         green = 0;
+        yellow = 1;
         if (pulse > 1*second) then
-            yellow = ! yellow;
             pulse = 0;
+            traffic_state = TRAFFIC_TEMP_ERROR_DARK;
         end if
         if !request_temp_error then
             traffic_state = TRAFFIC_GREEN
+        end if
+        end block;
+    TRAFFIC_TEMP_ERROR_DARK: block
+        red = 0;
+        green = 0;
+        yellow = 1;
+        if (pulse > 1*second) then
+            pulse = 0;
+            traffic_state = TRAFFIC_TEMP_ERROR;
         end if
         end block;
     TRAFFIC_FAIL: block
