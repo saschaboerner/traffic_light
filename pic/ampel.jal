@@ -340,7 +340,11 @@ procedure traffic_statemachine() is
             traffic_state = TRAFFIC_TEMP_ERROR_DARK;
         end if
         if !request_temp_error then
-            traffic_state = TRAFFIC_GREEN
+            if request_green then
+                traffic_state = TRAFFIC_GREEN
+            else
+                traffic_state = TRAFFIC_RED
+            end if
         end if
         end block;
     TRAFFIC_TEMP_ERROR_DARK: block
