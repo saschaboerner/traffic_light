@@ -197,7 +197,6 @@ class TrafficLightGroup(TrafficLight):
         #if self.i_am_master:
 
     def sendUpdate(self):
-        #if not self.i_am_master:
         self.local.setGreen(self.give_way)
         self.local.setTempError(self.temp_error)
 
@@ -206,7 +205,7 @@ class TrafficLightGroup(TrafficLight):
             if not self.remote.seen():
                 self.logger.debug("Remote not seen!")
             if not self.local.seen():
-                self.logger.debug("Remote not seen!")
+                self.logger.debug("Local not seen!")
             return False
         # In transistions, disregard state divergence for a while
         if self.remote.state != self.local.state:
