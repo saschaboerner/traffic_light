@@ -63,7 +63,7 @@ class TrafficLight(object):
             "lamp_currents":self.lamp_currents,
             "good":self.isGood(),
             "give_way":self.give_way,
-            "temp_error":self.give_way
+            "temp_error":self.temp_error
             }
         return json.dumps(data)
 
@@ -127,7 +127,6 @@ class TrafficLightGroup(TrafficLight):
     def __init__(self, i_am_master, local, remote, group_key, max_diverge = 5):
         TrafficLight.__init__(self)
         self.i_am_master = i_am_master
-        self.div_tuple = None
         self.remote = remote
         self.local = local
         self.max_diverge = max_diverge
@@ -155,6 +154,9 @@ class TrafficLightGroup(TrafficLight):
         self.web_writeable = self.i_am_master
         self.dereferenced = True
 
+    def seen(self):
+        return self.local.seen() and self.remote.seen()
+
     def check(self):
         """
         Performs a routine sanity check of the system,
@@ -171,12 +173,8 @@ class TrafficLightGroup(TrafficLight):
         if good == False:
             self.setTempError(True)
             self.logger.error("Temporary error")
-        elif good is None and self.i_am_master:
+        elif good is None:
             self.logger.info("Diverged, try to realign")
-        elif good is None and not self.i_am_master:
-            # Let the PIC to the sync
-            self.local.sendUpdate()
-            return True
         else:
             self.logger.debug("good")
             self.setTempError(False)
@@ -213,10 +211,8 @@ class TrafficLightGroup(TrafficLight):
                 self.logger.debug("Local not seen!")
             return False
         # In transistions, disregard state divergence for a while
-        if self.remote.state != self.local.state:
-            div_tuple = (self.remote.state, self.local.state)
-            if self.div_tuple != div_tuple or self.start_diverge is None:
-                self.div_tupe = div_tuple
+        if self.remote.give_way!= self.local.give_way:
+            if self.start_diverge is None:
                 self.start_diverge = time()
             if (time() - self.start_diverge) > self.max_diverge:
                 return "maxdiverge"
