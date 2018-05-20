@@ -127,6 +127,7 @@ class TrafficLightGroup(TrafficLight):
     def __init__(self, i_am_master, local, remote, group_key, max_diverge = 5):
         TrafficLight.__init__(self)
         self.i_am_master = i_am_master
+        self.div_tuple = None
         self.remote = remote
         self.local = local
         self.max_diverge = max_diverge
@@ -170,8 +171,12 @@ class TrafficLightGroup(TrafficLight):
         if good == False:
             self.setTempError(True)
             self.logger.error("Temporary error")
-        elif good is None:
+        elif good is None and self.i_am_master:
             self.logger.info("Diverged, try to realign")
+        elif good is None and not self.i_am_master:
+            # Let the PIC to the sync
+            self.local.sendUpdate()
+            return True
         else:
             self.logger.debug("good")
             self.setTempError(False)
@@ -209,7 +214,9 @@ class TrafficLightGroup(TrafficLight):
             return False
         # In transistions, disregard state divergence for a while
         if self.remote.state != self.local.state:
-            if self.start_diverge is None:
+            div_tuple = (self.remote.state, self.local.state)
+            if self.div_tuple != div_tuple or self.start_diverge is None:
+                self.div_tupe = div_tuple
                 self.start_diverge = time()
             if (time() - self.start_diverge) > self.max_diverge:
                 return "maxdiverge"
