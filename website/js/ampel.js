@@ -52,7 +52,7 @@ traffic_light = function (subdir, root_element) {
             me.run(250);
 			},
 		
-		})
+		});
 	$(".setred",this.root_element).click( function(){
 		me.set_way(0);
 	});
@@ -61,9 +61,22 @@ traffic_light = function (subdir, root_element) {
 	});
 }
 
+
 $("document").ready(function()
 {
-    new traffic_light("/interface/local", $("#light1"));
-    new traffic_light("/interface/remote", $("#light2"));
-    new traffic_light("/interface/group", $("#lightgroup"));
+	$.ajax("/interface",
+		{
+		dataType:"json",
+		success:function(data){
+            let skel = $(".traffic_light_area");
+            let section = skel.parent();
+            for (var x in data){
+                let name = data[x];
+                let local_copy = skel.clone();
+                local_copy.attr("id", name);
+                new traffic_light("/interface/local_light", local_copy);
+                section.append(local_copy);
+            }
+		},
+	});
 });
