@@ -69,7 +69,6 @@ class TrafficLight(object):
 
     def from_json(self, raw):
         data = json.loads(raw)
-        print data
         (self.state, self.batt_voltage, self.lamp_currents) = ( data["state"], data["batt_voltage"], data["lamp_currents"] )
         (self.give_way, self.temp_error) = ( data["give_way"], data["temp_error"] )
 
@@ -197,7 +196,6 @@ class TrafficLightGroup(TrafficLight):
     def setTempError(self, state):
         self.temp_error = state
         self.sendUpdate()
-        #if self.i_am_master:
 
     def sendUpdate(self):
         self.local.setGreen(self.give_way)
