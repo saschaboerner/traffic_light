@@ -76,7 +76,7 @@ $("document").ready(function()
                 let name = data[x];
                 let local_copy = skel.clone();
                 local_copy.attr("id", name);
-                new traffic_light("/interface/local_light", local_copy);
+                new traffic_light("/interface/"+name, local_copy);
                 section.append(local_copy);
             }
 		},
