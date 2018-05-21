@@ -68,8 +68,10 @@ $("document").ready(function()
 		{
 		dataType:"json",
 		success:function(data){
-            let skel = $(".traffic_light_area");
-            let section = skel.parent();
+            let original = $(".traffic_light_area");
+            let skel = original.clone();
+            original.detach();
+            let section = $("#uebersicht");//skel.parent();
             for (var x in data){
                 let name = data[x];
                 let local_copy = skel.clone();
