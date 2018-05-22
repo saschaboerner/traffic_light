@@ -168,20 +168,21 @@ class TrafficLightGroup(TrafficLight):
             return None
 
         good = self.isGood()
+        temperr = self.temp_error
 
         if good == False:
-            self.setTempError(True)
+            temperr = True
             self.logger.error("Temporary error")
         elif good is None:
             self.logger.info("Diverged, try to realign")
         else:
             self.logger.debug("good")
-            self.setTempError(False)
+            temperr = False
 
         if self.remote.seen() and not self.i_am_master:
             self.logger.info("Will try to sync from master remote.give_way={}, remote.temp_error={}".format(self.remote.temp_error, self.remote.give_way))
             if good in (True, None):
-                self.setTempError(self.remote.temp_error)
+                temperr = self.remote.temp_error
             self.setGreen(self.remote.give_way)
             self.sendUpdate()
 
@@ -190,6 +191,7 @@ class TrafficLightGroup(TrafficLight):
         else:
             source = self.local
 
+        self.setTempError(temperr)
         self.state = source.state
         self.lamp_currents = source.lamp_currents
 
@@ -269,7 +271,7 @@ class TrafficLightDummy(TrafficLight):
             self.last_seen = time()
         if self.fail_lamp:
             self.state = 9
-        self.logger.debug("state={}".format(self.state))
+        self.logger.debug("state={} temp_error={}".format(self.state, self.temp_error))
         if self.state < 3:
             self.state += 1
         elif self.state == 5:
@@ -284,7 +286,7 @@ class TrafficLightDummy(TrafficLight):
             self.state = 5
         elif self.state == 8 and self.temp_error == False:
             self.state = 3
-        elif self.temp_error:
+        if self.temp_error:
             self.logger.warning("Got temporary error")
             self.state = 8
         self.lamp_currents = {
