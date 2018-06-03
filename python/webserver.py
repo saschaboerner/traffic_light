@@ -116,45 +116,6 @@ class TrafficLightWeb(resource.Resource):
         else:
             return "ok"
 
-class TransportWrapper(object):
-    secret = "AchWieGutDassNiemandWeiss"
-
-    def encapsulate(self, message):
-        assert(type(message) is dict)
-        clone = copy.deepcopy(message)
-        clone['_time'] = time.time()
-        raw = json.dumps(clone)
-        hashsum = hashlib.sha256(raw+secret).hexdigest()
-        
-        return json.dumps({"raw":raw, "hash":hashsum})
-
-    def decapsulate(self, message):
-        #assert(type(message) is str)
-        packet = json.loads(message)
-        assert('raw' in packet)
-        assert('hash' in packet)
-        hashsum = hashlib.sha256(raw+secret).hexdigest()
-        if not (hashsum == packet['hash']):
-            return False
-        return json.loads(raw)
-
-class Authenticator(resource.Resource, TransportWrapper):
-    isLeaf = True
-    common_text = "of0iefipmdsp3ekewpds[rqf;ew.c[efwsd"
-
-    def render_POST(self, request):
-        """
-        Validate clients token and if it is ok, return a signed
-        answer.
-        """
-        data = request.content.getvalue()
-        print(data)
-        msg = self.decapsulate(data)
-        print(msg)
-
-    def render_GET(self, request):
-        return "hallo"
-
 class JSONAnswer(resource.Resource):
     isLeaf = False
     numberRequests = 0
