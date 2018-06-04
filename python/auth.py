@@ -2,14 +2,22 @@ import json
 import copy
 import hashlib
 import time
+import string
+import random
 from hmac import HMAC
 from twisted.web import resource
+
+
 
 class TransportWrapper(object):
 
     def __init__(self, key):
         self.key = key
         self.digestmod = hashlib.sha256
+        self.charset = [x for x in  string.printable.strip()]
+
+    def makeChallenge(self):
+        return "".join(random.sample(self.charset, 32))
 
     def encapsulate(self, challenge, message):
         assert(type(message) is dict)

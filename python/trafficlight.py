@@ -11,6 +11,7 @@ from twisted.web.client import Agent, readBody
 from twisted.protocols import basic
 from twisted.python import log
 from time import time
+from auth import TransportWrapper
 #from zope.interface import implements
 
 
@@ -28,9 +29,11 @@ class TrafficLight(object):
         self.read_only = False
         self.web_writeable = False
         self.group_key = None
+        self.transportWrapper = None
 
     def setGroupKey(self, key):
         self.group_key = key
+        self.transportWrapper = TransportWrapper(key)
 
     def isWritable(self, key):
         if self.web_writeable:
@@ -56,7 +59,7 @@ class TrafficLight(object):
     def seen(self):
         return (time()-self.last_seen) < self.maxage
 
-    def to_json(self):
+    def to_json(self, challenge):
         data = {
             "state":self.state,
             "batt_voltage":self.batt_voltage,
@@ -65,10 +68,20 @@ class TrafficLight(object):
             "give_way":self.give_way,
             "temp_error":self.temp_error
             }
-        return json.dumps(data)
+        if challenge is not None and self.transportWrapper is None:
+            self.logger.error("missing transport wrapper")
+        if challenge is not None and self.transportWrapper is not None:
+            return self.transportWrapper.encapsulate(challenge, data)
+        else:
+            return json.dumps(data)
 
-    def from_json(self, raw):
-        data = json.loads(raw)
+    def from_json(self, raw, challenge=None):
+        if challenge is None:
+            data = json.loads(raw)
+        else:
+            data = self.transportWrapper.decapsulate(raw, challenge)
+        if data is None:
+            sef.logger.error("Transport failed")
         (self.state, self.batt_voltage, self.lamp_currents) = ( data["state"], data["batt_voltage"], data["lamp_currents"] )
         (self.give_way, self.temp_error) = ( data["give_way"], data["temp_error"] )
 
@@ -150,6 +163,7 @@ class TrafficLightGroup(TrafficLight):
             raise ValueError("Cannot find name {} for remote.".format(self.remote))
         self.remote.setReadOnly(not self.i_am_master)
         self.remote.setGroupKey(self.group_key)
+        self.local.setGroupKey(self.group_key)
         self.web_writeable = self.i_am_master
         self.dereferenced = True
 
@@ -339,24 +353,26 @@ class TrafficLightRemote(TrafficLight):
             self.running_request.cancel()
 
         try:
-            self.running_request = self.agent.request(b"GET", self.remote_url)
-            self.running_request.addCallback(self.request_handler)
+            challenge = self.transportWrapper.makeChallenge()
+            url = self.remote_url+ "?" + urllib.urlencode({"challenge": challenge})
+            self.running_request = self.agent.request(b"GET", url)
+            self.running_request.addCallback(self.request_handler, challenge)
             self.running_request.addErrback(log.err)
         except Exception as e:
             self.logger.debug(">>>>{}".format(e))
 
-    def request_handler(self, response):
+    def request_handler(self, response, challenge):
         d = readBody(response)
         # TODO maybe move it until validation?
         self.error_count = 0
-        d.addCallback(self.on_data_received)
+        d.addCallback(self.on_data_received, challenge)
         d.addErrback(log.err)
         self.running_request = None
         return d
 
-    def on_data_received(self, body):
+    def on_data_received(self, body, challenge):
         self.logger.debug("body={}".format(body))
-        self.from_json(body)
+        self.from_json(body, challenge)
         self.last_seen = time()
 
 class TrafficLightSerial(basic.LineReceiver, TrafficLight):

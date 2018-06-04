@@ -82,9 +82,13 @@ class TrafficLightWeb(resource.Resource):
 
     # HTTP side
     def render_GET(self, request):
+        challenge = None
+        if 'challenge' in request.args:
+            challenge = request.args['challenge'][0]
+
         self.numberRequests += 1
         request.setHeader(b"content-type", b"text/plain")
-        content = self.localLight.to_json()
+        content = self.localLight.to_json(challenge)
         return content.encode("utf-8")
 
     def render_POST(self, request):
