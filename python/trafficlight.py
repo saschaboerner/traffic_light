@@ -123,6 +123,42 @@ class TrafficLight(object):
         '''
         pass
 
+class TrafficLightController(basic.LineReceiver):
+    @classmethod
+    def open(cls, port, group):
+        controller = cls()
+        serial = SerialPort(baudrate=19200, deviceNameOrPortNumber=port,
+                            protocol=controller, reactor=reactor)
+        controller.setSerial(serial)
+        controller.setGroup(group)
+
+    def setSerial(self, serial):
+        self.serial = serial
+
+    def setGroup(self, group):
+        self.group = group
+
+    def lineReceived(self, line):
+        for c in line:
+            if c == "g":
+                self.group.give_way = False
+                self.group.doUpdate()
+            elif c == "G":
+                self.group.give_way = True
+                self.group.doUpdate()
+            # TODO: Should we really discard siently?
+
+    def doUpdate(self):
+        """
+        Wakeup callback from group instance,
+        send information to handheld
+        """
+        packet = ["1" if x > 10 else "0" for x in self.group.lamp_currents]
+        # FIXME: Classify Battery local/remote in good/bad
+        packet += [str(self.group.state), str(self.group.batt_voltage)]
+        cmd = " ".join(packet)
+        self.sendLine(cmd)
+
 
 class TrafficLightGroup(TrafficLight):
     @classmethod
@@ -147,6 +183,7 @@ class TrafficLightGroup(TrafficLight):
         self.setGroupKey(group_key)
         self.check_loop = task.LoopingCall(self.check)
         self.check_loop.start(.25).addErrback(log.err)
+        self.controller = None
 
     def dereference(self, names):
         '''
@@ -213,7 +250,7 @@ class TrafficLightGroup(TrafficLight):
 
         self.setTempError(temperr)
         self.state = source.state
-        self.lamp_currents = source.lamp_currents
+        self.lamp_currents = self.local.lamp_currents + self.remote.lamp_currents
 
     def setTempError(self, state):
         self.temp_error = state
@@ -222,6 +259,9 @@ class TrafficLightGroup(TrafficLight):
     def sendUpdate(self):
         self.local.setGreen(self.give_way)
         self.local.setTempError(self.temp_error)
+        # Try to update the manual controller
+        if self.controller is not None:
+            self.controller.doUpdate()
 
     def isGood(self):
         if False in [self.remote.seen(), self.local.seen()]:
@@ -453,71 +493,8 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
         self.sendUpdate()
 
 
-class TrafficLightController(basic.LineReceiver, TrafficLight):
-
-    delimiter = '\n'.encode('ascii')
-
-    @classmethod
-    def open(cls, name, port, reactor=reactor):
-        local_light = cls()
-        local_light.setLogger(logging.getLogger(name))
-        serial = SerialPort(baudrate=19200, deviceNameOrPortNumber=port,
-                            protocol=local_light, reactor=reactor)
-        local_light.setSerial(serial)
-        local_light.setReset(reset_pin)
-        local_light.sendUpdate()
-        return local_light
-
-    def setSerial(self, serial):
-        self.serial = serial
-
-    def setReset(self, pin):
-        if pin is None:
-            self.reset_name = None
-            return
-
-        self.reset_name = "/sys/class/gpio/gpio{}/value".format(pin)
-        try:
-            with open("/sys/class/gpio/export", "w") as f:
-                f.write("{}\n".format(pin))
-        except Exception as e:
-            logging.error("Could not open/write exports in gpiofs: {}".format(e))
-
-    def lineReceived(self, line):
-        # Ignore blank lines
-        if not line:
-            return
-        line = line.decode("ascii").strip()
-        try:
-            (self.state, self.batt_voltage, self.error_state, self.lamp_currents[0], self.lamp_currents[1], self.lamp_currents[2]) = line.split(" ")
-            self.last_seen = time()
-        except ValueError:
-            logging.info("Received garbled line")
-        # logging.warning("update myself: {}".format(self))
-
-    def setConfig(self, param, value):
-        if param in self.config_map:
-            cmd = "s{}={}".format(self.config_map[param], int(value))
-            self.sendLine(cmd)
-        else:
-            raise ValueError("Unknown parameter {}".format(param))
-
-    def sendUpdate(self):
-        if self.give_way:
-            self.sendLine("G")
-        else:
-            self.sendLine("g")
-        if self.temp_error:
-            self.sendLine("E")
-        else:
-            self.sendLine("e")
-
-    def serviceWatchdog(self):
-        self.sendUpdate()
-
 lightTypes = {'serial': TrafficLightSerial,
               'group': TrafficLightGroup,
               'dummy': TrafficLightDummy,
               'remote': TrafficLightRemote,
-              'controller': TrafficLightController
               }
