@@ -1,0 +1,48 @@
+Protocols used
+
+Serial
+======
+
+RPi<->PIC
+=========
+
+RPi -> PIC
+-----------
+Only one byte commands are transmitted, represented by the following ASCII
+chars:
+
+g	No green light -> Go to RED
+G	Green light -> Go to GREEN
+e	No error -> Enbale normal operation
+E	Temporary error -> Blink yellow
+
+RPi <- PIC
+----------
+The PIC sends an newline-terminated ASCII string of space char separated values
+on regular basis. The fields are as follows:
+
+STATE			State of PIC state machine
+BATT_VOLTAGE	Voltage of battey pack
+LAMP_CURRENT[0]	Current through lamp 0
+LAMP_CURRENT[1]	Current through lamp 1
+LAMP_CURRENT[2]	Current through lamp 2
+
+Arduino <-> RPi
+===============
+Should be pretty similar to the PIC/RPi interface.
+
+Arduino -> RPi
+==============
+g	No green light, close Road
+G	Green light, open Road
+
+RPi -> Arduino
+==============
+Space separated and newline terminated string, fields as follows:
+RED	State of red lamp, 0=off, 1=on, 2=blink/error
+YELLOW	State of yellow lamp, 0=off, 1=on, 2=blink/error
+GREEN	State of green lamp, 0=off, 1=on, 2=blink/error
+STATE	0=All good, 1=synching
+BATTERY	0=All good, 1=master low, 2=slave low, may be or'ed togehter if both
+		are empty
+
