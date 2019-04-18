@@ -3,6 +3,7 @@ traffic_light = function (subdir, root_element) {
 	this.error_count = 0;
 	this.subdir = subdir;
 	this.root_element = root_element;
+	this.group_key = "";
 	this.run=function(interval){
 		$.ajax(me.subdir, {
 			dataType: "json",
@@ -19,7 +20,8 @@ traffic_light = function (subdir, root_element) {
 	this.set_way=function(value){
 			$.post(me.subdir,
 				{
-					"giveway": value
+					"giveway": value,
+					"key": me.group_key
 				},
 			);
 		};
