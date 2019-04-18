@@ -42,6 +42,7 @@ pragma target OSC hs -- External quartz
 pragma target clock 10_000_000     -- oscillator frequency
 pragma target IESO DISABLED
 pragma target FCMEN DISABLED
+pragma target PWRTE ENABLED
 const serial_hw_baudrate = 19200;
 var bit serial_ctsinv;
 var bit serial_overflow_discard=false;
@@ -212,6 +213,7 @@ const TRAFFIC_GREEN = 3;
 const TRAFFIC_YELLOW = 4;
 const TRAFFIC_RED = 5;
 const TRAFFIC_RED_YELLOW = 6;
+const TRAFFIC_TEMP_ERROR_DARK = 7;
 const TRAFFIC_TEMP_ERROR = 8;
 const TRAFFIC_FAIL = 9;
 
@@ -332,12 +334,26 @@ procedure traffic_statemachine() is
     TRAFFIC_TEMP_ERROR: block
         red = 0;
         green = 0;
+        yellow = 1;
         if (pulse > 1*second) then
-            yellow = ! yellow;
             pulse = 0;
+            traffic_state = TRAFFIC_TEMP_ERROR_DARK;
         end if
         if !request_temp_error then
-            traffic_state = TRAFFIC_GREEN
+            if request_green then
+                traffic_state = TRAFFIC_GREEN
+            else
+                traffic_state = TRAFFIC_RED
+            end if
+        end if
+        end block;
+    TRAFFIC_TEMP_ERROR_DARK: block
+        red = 0;
+        green = 0;
+        yellow = 0;
+        if (pulse > 1*second) then
+            pulse = 0;
+            traffic_state = TRAFFIC_TEMP_ERROR;
         end if
         end block;
     TRAFFIC_FAIL: block

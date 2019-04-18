@@ -12,15 +12,27 @@
 </head>
 <body>
 
-<div data-role="page" class="jqm-demos" data-quicklinks="true">
-	<div class="traffic_light_area" id="light1">
-		<div class="tlpicture"></div>
-		<label>Akkuspannung:</label> <input type="number" readonly class="battvoltage"></input><br/>
-		<label>Ampelströme:</label> <input type="number" readonly class="lamp1current"></input>
-	<button class="setred">Rot</button>
-	<button class="setgreen">Grün</button>
-	</div>
-</div>
+
+    <div data-role="page">
+
+        <div data-role="header">
+            <h1>My Title</h1>
+        </div><!-- /header -->
+
+        <div role="main" class="ui-content" id="uebersicht">
+            <div class="traffic_light_area" id="light1" style='width:30%;float:left;'>
+                <div class="tlpicture"></div>
+                <label>Akkuspannung:</label> <input type="number" readonly class="battvoltage"></input><br/>
+                <button class="setred">Rot</button>
+                <button class="setgreen">Grün</button>
+            </div>
+        </div><!-- /content -->
+
+        <div data-role="footer">
+            <h4>My Footer</h4>
+        </div><!-- /footer -->
+
+    </div><!-- /page -->
 
 </body>
 </html>
