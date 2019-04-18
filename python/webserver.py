@@ -1,77 +1,16 @@
 import json
 import hashlib
 import time
-from ConfigParser import SafeConfigParser
+import sys
+import copy
+from ConfigParser import ConfigParser, NoOptionError
 from twisted.web.server import Site
-from twisted.web.client import Agent
-from twisted.web import server, resource
-from twisted.web.resource import Resource, NoResource
-from twisted.protocols import basic
-from twisted.internet import reactor, endpoints, task
+from twisted.web import resource
+from twisted.web.resource import NoResource
+from twisted.internet import reactor, endpoints
 from twisted.web.static import File
 from trafficlight import TrafficLightSerial
 
-
-class TrafficLightMasterSlave(object):
-    '''
-    Handles master/slave behavior and synch.
-    '''
-    service_class = "_http._tcp.local"
-
-    def __init__(self, config_file_name):
-        self.config = SafeConfigParser()
-        with open(config_file_name, "r") as f:
-            self.config.read(f)
-        self.isMaster = config.getboolean("general", "master")
-        self.remote_hostname = config.get("general", "remote")
-        if self.remote_hostname is None:
-            logging.error("No remote hostname defined. No master/slave capability possible!")
-
-        self.poll_loop = task.LoopingCall(self.poll_remote)
-        self.poll_loop.start(0.25)
-        self.agent = Agent(reactor)
-        self.remote_url = "http://{}:8880/interface/status".format(self.remote_hostname).encode("ascii")
-        self.running_request = None
-        self.error_count = 0
-        # Publish own service
-        # TODO
-    
-    def poll_remote(self):
-        '''
-        Polls remote host to get its state
-        '''
-        if self.running_request is not None:
-            self.error_count += 1
-            self.running_request.cancel()
-
-        self.running_request = self.agent.request(b"GET", self.remote_url)
-        self.running_request.addCallback(self.request_handler)
-        pass
-    
-    def request_handler(self, response):
-        d = readBody(response)
-        # TODO maybe move it until validation?
-        self.error_count = 0
-        if not self.isMaster:
-            # Only master need to really process the answer,
-            # a slave is happy when it sees the master
-            d.addCallback(self.on_slave_received)
-        else:
-            d.addCallback(self.on_master_received)
-
-    def on_slave_received(self, body):
-        pass
-
-    def on_master_received(self, body):
-        pass
-
-    def on_discover(self, host):
-        '''
-        When discovering an external host, determine who's the master
-        and tell the host about it.
-        '''
-        pass
-    
 
 class TrafficLightWeb(resource.Resource):
     isLeaf = True
@@ -98,6 +37,7 @@ class TrafficLightWeb(resource.Resource):
         else:
             return "not ok"
 
+
 class TransportWrapper(object):
     secret = "AchWieGutDassNiemandWeiss"
 
@@ -106,19 +46,20 @@ class TransportWrapper(object):
         clone = copy.deepcopy(message)
         clone['_time'] = time.time()
         raw = json.dumps(clone)
-        hashsum = hashlib.sha256(raw+secret).hexdigest()
-        
-        return json.dumps({"raw":raw, "hash":hashsum})
+        hashsum = hashlib.sha256(raw+self.secret).hexdigest()
+
+        return json.dumps({"raw": raw, "hash": hashsum})
 
     def decapsulate(self, message):
-        #assert(type(message) is str)
+        # assert(type(message) is str)
         packet = json.loads(message)
         assert('raw' in packet)
         assert('hash' in packet)
-        hashsum = hashlib.sha256(raw+secret).hexdigest()
+        hashsum = hashlib.sha256(self.raw+self.secret).hexdigest()
         if not (hashsum == packet['hash']):
             return False
         return json.loads(raw)
+
 
 class Authenticator(resource.Resource, TransportWrapper):
     isLeaf = True
@@ -137,13 +78,33 @@ class Authenticator(resource.Resource, TransportWrapper):
     def render_GET(self, request):
         return "hallo"
 
-local_light = TrafficLightSerial.open("/dev/serial0")
+
+if len(sys.argv) > 0:
+    config_file_name = sys.argv[1]
+else:
+    config_file_name = None
+
+config = ConfigParser()
+if config_file_name is not None:
+    config.read(config_file_name)
+print(config.sections())
+
+try:
+    reset_gpio = config.get("hardware", "reset_pin")
+except NoOptionError:
+    reset_gpio = None
+
+try:
+    port = config.get("hardware", "port")
+except NoOptionError:
+    port = None
+
+local_light = TrafficLightSerial.open(port, reset_gpio)
 
 root = File("../website/")
-root.putChild("foo", File("/tmp"))
 
 interface = NoResource()
-#interface.putChild("give_way", GiveWay(local_light))
+# interface.putChild("give_way", GiveWay(local_light))
 interface.putChild("status", TrafficLightWeb(local_light))
 
 root.putChild("interface", interface)

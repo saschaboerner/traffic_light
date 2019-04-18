@@ -45,22 +45,38 @@ class TrafficLight(object):
 
     def __str__(self):
         return "TrafficLight(state={}, batt_voltage={}, lamp_currents={})".format(self.state, self.batt_voltage, self.lamp_currents)
+
 class TrafficLightGroup(object):
+    # How many seconds a divergence is acceptable
+    acceptDivergeFor = 2
+
     def __init__(self, iAmMaster, local, remote):
         self.iAmMaster = iAmMaster
         self.remote = remote
         self.local = local
+        self.diverge_since = None
 
     def setGreen(self, give_way):
+        if not self.iAmMaster:
+            return False
         self.remote.setGreen(give_way)
         self.local.setGreen(give_way)
+        return True
 
     def isGood(self):
-        if not self.remote.seen():
+        if False in [ self.remote.isGood(), self.local.isGood() ]:
             return False
+
         # In transistions, flag value as invalid..
         if not (self.remote.state != self.local.state):
-            return None
+            if self.diverge_since is None:
+                self.diverge_since = time()
+            if (time() - self.diverge_since) <= self.acceptDivergeFor:
+                return None
+            else:
+                return False
+        else:
+            self.diverge_since = None
         return True
 
 class TrafficLightRemote(TrafficLight):
@@ -86,7 +102,7 @@ class TrafficLightRemote(TrafficLight):
             self.running_request.addCallback(self.request_handler)
             self.running_request.addErrback(log.err)
         except Exception as e:
-            print ">>>>{}".format(e)
+            print(">>>>{}".format(e))
     
     def request_handler(self, response):
         d = readBody(response)
@@ -105,10 +121,10 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
     delimiter = '\n'.encode('ascii')
 
-    config_map = { "min_on_current": 0,
-                   "max_on_current": 1,
-                   "max_off_current": 2
-                   }
+    config_map = {"min_on_current": 0,
+                  "max_on_current": 1,
+                  "max_off_current": 2
+                  }
 
     @classmethod
     def open(cls, port, reset_pin=None, reactor=reactor):
@@ -135,7 +151,8 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
     def lineReceived(self, line):
         # Ignore blank lines
-        if not line: return
+        if not line: 
+            return
         line = line.decode("ascii").strip()
         try:
             (self.state, self.batt_voltage, self.error_state, self.lamp_currents[0], self.lamp_currents[1], self.lamp_currents[2]) = line.split(" ")
