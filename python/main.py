@@ -1,28 +1,21 @@
-import json
-import hashlib
-import time
 import sys
 import logging
 from ConfigParser import SafeConfigParser
 from twisted.web.server import Site
-from twisted.web.client import Agent
-from twisted.web import server, resource
-from twisted.web.resource import Resource, NoResource
-from twisted.protocols import basic
-from twisted.internet import reactor, endpoints, task
+from twisted.internet import reactor, endpoints
 from twisted.web.static import File
 from trafficlight import lightTypes
 from webserver import TrafficLightWeb, JSONAnswer
 
-if len(sys.argv)<2:
-    print "Please start with a config file name"
+if len(sys.argv) < 2:
+    print("Please start with a config file name")
     sys.exit(0)
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-lights={}
-conf=SafeConfigParser()
+lights = {}
+conf = SafeConfigParser()
 conf.read(sys.argv[1])
 
 sections = conf.sections()
@@ -30,7 +23,7 @@ sections = conf.sections()
 if 'web' not in sections:
     port = 8880
 else:
-    port = conf.getint('web','http_port')
+    port = conf.getint('web', 'http_port')
 
 light_sections = sections[:]
 light_sections.remove('web')
@@ -43,15 +36,16 @@ for s in light_sections:
         continue
     lighttype = conf.get(s, 'type').strip()
     if lighttype not in lightTypes:
-        logging.error("{}: Type '{}' is unknown, valid would be {}".format(s, lighttype, lightTypes.keys()))
+        logging.error("{}: Type '{}' is unknown, valid would be {}".format(s,
+                      lighttype, lightTypes.keys()))
         continue
-    options = { k:conf.get(s, k) for k in conf.options(s) }
+    options = {k: conf.get(s, k) for k in conf.options(s)}
     del options['type']
 
     try:
         logging.info("Start {}".format(s))
         l = lightTypes[lighttype].open(name=s, **options)
-    except TypeError as e: # When option name is not known
+    except TypeError as e:  # When option name is not known
         logging.error("{}: {}".format(s, e))
         continue
     lights[s] = l
@@ -59,10 +53,10 @@ for s in light_sections:
 
 root = File("../website/")
 
-print lights
+print(lights)
 
 interface = JSONAnswer(lights.keys())
-#interface.putChild("status", TrafficLightWeb(local_light))
+# interface.putChild("status", TrafficLightWeb(local_light))
 root.putChild("interface", interface)
 
 for s in lights:
@@ -70,7 +64,7 @@ for s in lights:
     lights[s].dereference(lights)
     # Finally add them to the web tree
     interface.putChild(s, TrafficLightWeb(lights[s]))
-#root.putChild("auth", Authenticator())
+# root.putChild("auth", Authenticator())
 
 factory = Site(root)
 endpoint = endpoints.TCP4ServerEndpoint(reactor, port)
