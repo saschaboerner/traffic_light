@@ -39,10 +39,13 @@ G	Green light, open Road
 RPi -> Arduino
 ==============
 Space separated and newline terminated string, fields as follows:
-RED	State of red lamp, 0=off, 1=on, 2=blink/error
-YELLOW	State of yellow lamp, 0=off, 1=on, 2=blink/error
-GREEN	State of green lamp, 0=off, 1=on, 2=blink/error
-STATE	0=All good, 1=synching
-BATTERY	0=All good, 1=master low, 2=slave low, may be or'ed togehter if both
+RED_LOCAL		State of red lamp, 0=off, 1=on
+YELLOW_LOCAL	State of yellow lamp, 0=off
+GREEN_LOCAL		State of green lamp, 0=off
+RED_REMOTE		State of red lamp, 0=off, 1=on
+YELLOW_REMOTE	State of yellow lamp, 0=off
+GREEN_REMOTE	State of green lamp, 0=off
+STATE			0=All good, 1=synching, 2=error
+BATTERY			0=All good, 1=master low, 2=slave low, may be or'ed together if both
 		are empty
 
