@@ -148,13 +148,13 @@ class TrafficLightController(basic.LineReceiver):
         for c in line:
             if c == "g":
                 self.group.give_way = False
-                self.group.sendUpdatedate()
+                self.group.sendUpdate()
             elif c == "G":
                 self.group.give_way = True
-                self.group.sendUpdatedate()
+                self.group.sendUpdate()
             # TODO: Should we really discard siently?
 
-    def sendUpdatedate(self):
+    def sendUpdate(self):
         """
         Wakeup callback from group instance,
         send information to handheld
@@ -170,7 +170,7 @@ class TrafficLightGroup(TrafficLight):
     # Names of all controller files to be scanned
     controller_names = ["{}{}".format(prefix, i)
                         for i in range(20)
-                        for prefix in ["/dev/ttyUSB", '/devtty/AMA']
+                        for prefix in ["/dev/ttyUSB", '/dev/ttyACM']
                         ]
 
     @classmethod
@@ -236,12 +236,14 @@ class TrafficLightGroup(TrafficLight):
         l = l[1:] + l[:1]
         self.controller_names = l
         path = l[0]
-        print("Try '{}'".format(path))
+        self.logger.debug("Try '{}'".format(path))
         if os.path.exists(path):
+            self.logger.debug("'{}' exists".format(path))
             try:
                 self.controller = TrafficLightController.open(path, self)
             except Exception as e:
-                logging.error("Opening path {} as a controller failed: {}".format(path, e))
+                self.logger.error("Opening path {} as a controller failed: {}"
+                                  .format(path, e))
 
     def check(self):
         """
@@ -302,7 +304,7 @@ class TrafficLightGroup(TrafficLight):
         self.local.setTempError(self.temp_error)
         # Try to update the manual controller
         if self.controller is not None:
-            self.controller.sendUpdatedate()
+            self.controller.sendUpdate()
 
     def isGood(self):
         if False in [self.remote.seen(), self.local.seen()]:
