@@ -2,6 +2,7 @@ import json
 import logging
 import random
 import urllib
+import os
 from twisted.internet.serialport import SerialPort
 from twisted.internet import reactor, task
 from twisted.web.client import Agent, readBody
@@ -123,6 +124,7 @@ class TrafficLight(object):
         '''
         pass
 
+
 class TrafficLightController(basic.LineReceiver):
     @classmethod
     def open(cls, port, group):
@@ -131,6 +133,10 @@ class TrafficLightController(basic.LineReceiver):
                             protocol=controller, reactor=reactor)
         controller.setSerial(serial)
         controller.setGroup(group)
+
+    def connectionLost(self, reason):
+        # Declare myself lost to group
+        self.group.controllerLost()
 
     def setSerial(self, serial):
         self.serial = serial
@@ -142,13 +148,13 @@ class TrafficLightController(basic.LineReceiver):
         for c in line:
             if c == "g":
                 self.group.give_way = False
-                self.group.doUpdate()
+                self.group.sendUpdatedate()
             elif c == "G":
                 self.group.give_way = True
-                self.group.doUpdate()
+                self.group.sendUpdatedate()
             # TODO: Should we really discard siently?
 
-    def doUpdate(self):
+    def sendUpdatedate(self):
         """
         Wakeup callback from group instance,
         send information to handheld
@@ -161,6 +167,12 @@ class TrafficLightController(basic.LineReceiver):
 
 
 class TrafficLightGroup(TrafficLight):
+    # Names of all controller files to be scanned
+    controller_names = ["{}{}".format(prefix, i)
+                        for i in range(20)
+                        for prefix in ["/dev/ttyUSB", '/devtty/AMA']
+                        ]
+
     @classmethod
     def open(cls, name, i_am_master, local, remote, max_diverge=10,
              group_key=None):
@@ -185,6 +197,13 @@ class TrafficLightGroup(TrafficLight):
         self.check_loop.start(.25).addErrback(log.err)
         self.controller = None
 
+    def controllerLost(self):
+        '''
+        Signals that the controller instance is now
+        invalid.
+        '''
+        self.controller = None
+
     def dereference(self, names):
         '''
         Dereferece symbolic names (if needed)
@@ -207,6 +226,23 @@ class TrafficLightGroup(TrafficLight):
     def seen(self):
         return self.local.seen() and self.remote.seen()
 
+    def probe_controller(self):
+        """
+        Tries to find a controller by rotating the
+        list of known file names and trying to access them
+        """
+        # Rotate list of controller names
+        l = self.controller_names
+        l = l[1:] + l[:1]
+        self.controller_names = l
+        path = l[0]
+        print("Try '{}'".format(path))
+        if os.path.exists(path):
+            try:
+                self.controller = TrafficLightController.open(path, self)
+            except Exception as e:
+                logging.error("Opening path {} as a controller failed: {}".format(path, e))
+
     def check(self):
         """
         Performs a routine sanity check of the system,
@@ -217,6 +253,11 @@ class TrafficLightGroup(TrafficLight):
         if not self.dereferenced:
             logging.debug("Cannot check yet, not dereferenced yet")
             return None
+
+        if self.i_am_master and self.controller is None:
+            # Probe for external controller if none is attached (yet)
+            self.probe_controller()
+            pass
 
         good = self.isGood()
         temperr = self.temp_error
@@ -261,7 +302,7 @@ class TrafficLightGroup(TrafficLight):
         self.local.setTempError(self.temp_error)
         # Try to update the manual controller
         if self.controller is not None:
-            self.controller.doUpdate()
+            self.controller.sendUpdatedate()
 
     def isGood(self):
         if False in [self.remote.seen(), self.local.seen()]:
