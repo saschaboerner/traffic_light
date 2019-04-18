@@ -1,15 +1,9 @@
 import json
-import hashlib
-import time
+import logging
 from ConfigParser import SafeConfigParser
-from twisted.web.server import Site
-from twisted.web.client import Agent
-from twisted.web import server, resource
-from twisted.web.resource import Resource, NoResource
-from twisted.protocols import basic
-from twisted.internet import reactor, endpoints, task
-from twisted.web.static import File
-from trafficlight import TrafficLightSerial
+from twisted.web.client import Agent, readBody
+from twisted.web import resource
+from twisted.internet import reactor, task
 
 
 class TrafficLightMasterSlave(object):
@@ -22,8 +16,8 @@ class TrafficLightMasterSlave(object):
         self.config = SafeConfigParser()
         with open(config_file_name, "r") as f:
             self.config.read(f)
-        self.isMaster = config.getboolean("general", "master")
-        self.remote_hostname = config.get("general", "remote")
+        self.isMaster = self.config.getboolean("general", "master")
+        self.remote_hostname = self.config.get("general", "remote")
         if self.remote_hostname is None:
             logging.error("No remote hostname defined. No master/slave capability possible!")
 
@@ -35,7 +29,7 @@ class TrafficLightMasterSlave(object):
         self.error_count = 0
         # Publish own service
         # TODO
-    
+
     def poll_remote(self):
         '''
         Polls remote host to get its state
@@ -47,7 +41,7 @@ class TrafficLightMasterSlave(object):
         self.running_request = self.agent.request(b"GET", self.remote_url)
         self.running_request.addCallback(self.request_handler)
         pass
-    
+
     def request_handler(self, response):
         d = readBody(response)
         # TODO maybe move it until validation?
@@ -71,14 +65,15 @@ class TrafficLightMasterSlave(object):
         and tell the host about it.
         '''
         pass
-    
+
 
 class TrafficLightWeb(resource.Resource):
     isLeaf = True
     numberRequests = 0
 
     def __init__(self, local_light):
-        self.localLight = local_light
+        self.myLight = local_light
+        print(local_light)
 
     # HTTP side
     def render_GET(self, request):
@@ -88,19 +83,19 @@ class TrafficLightWeb(resource.Resource):
 
         self.numberRequests += 1
         request.setHeader(b"content-type", b"text/plain")
-        content = self.localLight.to_json(challenge)
+        content = self.myLight.to_json(challenge)
         return content.encode("utf-8")
 
     def render_POST(self, request):
         data = request.args
         handled = False
-        # Do not write masters
+        # When no key is passed -> fail quickly
         try:
             key = data['key'][0]
         except KeyError:
             key = None
 
-        if not self.localLight.isWritable(key):
+        if not self.myLight.isWritable(key):
             return "not writeable"
 
         if 'giveway' in data:
@@ -108,17 +103,18 @@ class TrafficLightWeb(resource.Resource):
                 value = int(data['giveway'][0])
             except:
                 return "value error"
-            self.localLight.setGreen(value)
+            self.myLight.setGreen(value)
             handled = True
 
         if 'temp_error' in data:
-            self.localLight.setTempError(bool(int(data['temp_error'][0])))
+            self.myLight.setTempError(bool(int(data['temp_error'][0])))
             handled = True
 
         if not handled:
             return "not ok"
         else:
             return "ok"
+
 
 class JSONAnswer(resource.Resource):
     isLeaf = False
