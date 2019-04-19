@@ -133,6 +133,7 @@ class TrafficLightController(basic.LineReceiver):
                             protocol=controller, reactor=reactor)
         controller.setSerial(serial)
         controller.setGroup(group)
+        return controller
 
     def connectionLost(self, reason):
         # Declare myself lost to group
@@ -231,19 +232,17 @@ class TrafficLightGroup(TrafficLight):
         Tries to find a controller by rotating the
         list of known file names and trying to access them
         """
-        # Rotate list of controller names
-        l = self.controller_names
-        l = l[1:] + l[:1]
-        self.controller_names = l
-        path = l[0]
-        self.logger.debug("Try '{}'".format(path))
-        if os.path.exists(path):
-            self.logger.debug("'{}' exists".format(path))
-            try:
-                self.controller = TrafficLightController.open(path, self)
-            except Exception as e:
-                self.logger.error("Opening path {} as a controller failed: {}"
-                                  .format(path, e))
+        # Process a whole list of options
+        for path in self.controller_names:
+            self.logger.debug("Try '{}'".format(path))
+            if os.path.exists(path):
+                self.logger.debug("'{}' exists".format(path))
+                try:
+                    self.controller = TrafficLightController.open(path, self)
+
+                except Exception as e:
+                    self.logger.error("Opening path {} as a controller failed: {}"
+                                      .format(path, e))
 
     def check(self):
         """
