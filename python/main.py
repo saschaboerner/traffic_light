@@ -1,6 +1,6 @@
 import sys
 import logging
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 from twisted.web.server import Site
 from twisted.internet import reactor, endpoints
 from twisted.web.static import File
@@ -37,7 +37,7 @@ for s in light_sections:
     lighttype = conf.get(s, 'type').strip()
     if lighttype not in lightTypes:
         logging.error("{}: Type '{}' is unknown, valid would be {}".format(s,
-                      lighttype, lightTypes.keys()))
+                      lighttype, list(lightTypes.keys())))
         continue
     options = {k: conf.get(s, k) for k in conf.options(s)}
     del options['type']
@@ -55,15 +55,15 @@ root = File("../website/")
 
 print(lights)
 
-interface = JSONAnswer(lights.keys())
+interface = JSONAnswer(list(lights.keys()))
 # interface.putChild("status", TrafficLightWeb(local_light))
-root.putChild("interface", interface)
+root.putChild(b"interface", interface)
 
 for s in lights:
     # After init, dereference symbolic names
     lights[s].dereference(lights)
     # Finally add them to the web tree
-    interface.putChild(s, TrafficLightWeb(lights[s]))
+    interface.putChild(bytes(s.encode('ascii')), TrafficLightWeb(lights[s]))
 # root.putChild("auth", Authenticator())
 
 factory = Site(root)

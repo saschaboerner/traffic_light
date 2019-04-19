@@ -1,7 +1,7 @@
 import json
 import logging
 import random
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import os
 from twisted.internet.serialport import SerialPort
 from twisted.internet import reactor, task
@@ -70,7 +70,7 @@ class TrafficLight(object):
         if challenge is not None and self.transportWrapper is not None:
             return self.transportWrapper.encapsulate(challenge, data)
         else:
-            return json.dumps(data)
+            return bytes(json.dumps(data).encode('utf8'))
 
     def from_json(self, raw, challenge=None):
         if challenge is None:
@@ -164,7 +164,7 @@ class TrafficLightController(basic.LineReceiver):
         # FIXME: Classify Battery local/remote in good/bad
         packet += [str(self.group.state), str(self.group.batt_voltage)]
         cmd = " ".join(packet)
-        self.sendLine(cmd)
+        self.sendLine(bytes(cmd.encode("ascii")))
 
 
 class TrafficLightGroup(TrafficLight):
@@ -445,7 +445,8 @@ class TrafficLightRemote(TrafficLight):
             # FIXME: might fail on first iteration as transportWrapper is not
             #        yet initialized..
             challenge = self.transportWrapper.makeChallenge()
-            url = self.remote_url + "?" + urllib.urlencode({"challenge": challenge})
+            url = self.remote_url + "?" + urllib.parse.urlencode({"challenge": challenge})
+            url = bytes(url.encode("ascii"))
             self.running_request = self.agent.request(b"GET", url)
             self.running_request.addCallback(self.request_handler, challenge)
             self.running_request.addErrback(log.err)
@@ -523,13 +524,13 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
     def sendUpdate(self):
         if self.give_way:
-            self.sendLine("G")
+            self.sendLine("G".encode("ascii"))
         else:
-            self.sendLine("g")
+            self.sendLine("g".encode("ascii"))
         if self.temp_error:
-            self.sendLine("E")
+            self.sendLine("E".encode("ascii"))
         else:
-            self.sendLine("e")
+            self.sendLine("e".encode("ascii"))
 
     def serviceWatchdog(self):
         self.sendUpdate()

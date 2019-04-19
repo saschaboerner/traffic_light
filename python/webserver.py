@@ -1,6 +1,6 @@
 import json
 import logging
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 from twisted.web.client import Agent, readBody
 from twisted.web import resource
 from twisted.internet import reactor, task
@@ -84,7 +84,7 @@ class TrafficLightWeb(resource.Resource):
         self.numberRequests += 1
         request.setHeader(b"content-type", b"text/plain")
         content = self.myLight.to_json(challenge)
-        return content.encode("utf-8")
+        return content
 
     def render_POST(self, request):
         data = request.args
@@ -126,4 +126,4 @@ class JSONAnswer(resource.Resource):
 
     # HTTP side
     def render_GET(self, request):
-        return json.dumps(self.data)
+        return bytes(json.dumps(self.data).encode('utf8'))
