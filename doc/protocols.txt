@@ -16,6 +16,17 @@ G	Green light -> Go to GREEN
 e	No error -> Enbale normal operation
 E	Temporary error -> Blink yellow
 
+s<ADDR>=VAL Set EEPROM location to value, both in base-10!
+
+Valid addresses:
+0: Minimum on current
+1: Maximum on current
+2: Maximum off current
+
+Valid values:
+0..1024 Are valid A/D codes, although maybe not very useful
+65535   Reset data point to default value upon next reboot
+
 RPi <- PIC
 ----------
 The PIC sends an newline-terminated ASCII string of space char separated values
