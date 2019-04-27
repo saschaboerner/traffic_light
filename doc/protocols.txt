@@ -60,3 +60,67 @@ STATE			0=All good, 1=synching, 2=error
 BATTERY			0=All good, 1=master low, 2=slave low, may be or'ed together if both
 		are empty
 
+
+HTTP(s)
+=======
+
+Polling (with challenge)
+========================
+
+GET-Request:
+------------
+http://<IP>:<PORT>/interface/group?challenge=<CHALLENGE>
+
+The CHALLENGE is used to make replay attacks less feasible, the
+protocols security depends on the quality of randomness here.
+
+Response:
+---------
+JSON:
+{
+    raw: "<JSON RESPONSE>",
+    hash: <hmac_sha256(key=CHALLENGE, data=raw)>
+}
+Structure of JSON RESPONSE:
+{
+    state: <STATE>,
+    batt_voltage: <BATT_VOLTAGE>,
+    lamp_currents: [<RED_CURRENT>, <YELLOW_CURRENT>, <GREEN_CURRENT>]
+    give_way: <GIVE_WAY>,
+    temp_error: <TEMP_ERRROR>
+}
+
+STATE={
+   TRAFFIC_TEST_RED: 0,
+   TRAFFIC_TEST_RED_YELLOW: 1,
+   TRAFFIC_TEST_RED_YELLOW_GREEN: 2,
+   TRAFFIC_GREEN: 3,
+   TRAFFIC_YELLOW: 4,
+   TRAFFIC_RED: 5,
+   TRAFFIC_RED_YELLOW: 6,
+   TRAFFIC_TEMP_ERROR_DARK: 7,
+   TRAFFIC_TEMP_ERROR: 8,
+   TRAFFIC_FAIL: 9
+}
+
+BATT_VOLTAGE = int(BATTERY_VOLTAGE * 100) // In 1/100 Volt!
+LAMP_CURRENTS[x] = // Arbitrary units, (1024 Count / 2.5V) = ~2.441 mA/Count
+GIVE_WAY = bool
+TEMP_ERRROR = bool
+
+Setting
+=======
+
+POST Request
+------------
+http://<IP>:<PORT>/interface/group
+
+Body:
+JSON( {
+    key: GroupKey,
+    giveway: GIVE_WAY,
+    temp_error: TEMP_ERRROR,
+})
+
+Response:
+(not ok|ok)
