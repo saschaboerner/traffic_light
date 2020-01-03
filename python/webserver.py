@@ -1,7 +1,7 @@
 import json
 import hashlib
 import time
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 from twisted.web.server import Site
 from twisted.web.client import Agent
 from twisted.web import server, resource
