@@ -37,9 +37,16 @@ const min_on_current_default = 50
 const max_on_current_default = 2048
 const max_off_current_default = 20
 
+-- Set 1 when using actual HW, for breadboard test, leave 0
+const real_hw = 0
+
 --
 pragma target OSC hs -- External quartz
-pragma target clock 10_000_000     -- oscillator frequency
+if real_hw == 1 then
+    pragma target clock 10_000_000     -- oscillator frequency
+else
+    pragma target clock 11_059_200     -- oscillator frequency
+end if
 pragma target IESO DISABLED
 pragma target FCMEN DISABLED
 pragma target PWRTE ENABLED
@@ -316,16 +323,17 @@ procedure traffic_statemachine() is
         if request_green then
             traffic_state = TRAFFIC_RED_YELLOW;
         end if
-        if request_temp_error then
-            traffic_state = TRAFFIC_TEMP_ERROR
-        end if
         end block
     TRAFFIC_RED_YELLOW: block
         red = 1;
         yellow = 1;
         green = 0;
         if pulse > 4*second then
-            traffic_state = TRAFFIC_GREEN
+            if request_temp_error then
+                traffic_state = TRAFFIC_TEMP_ERROR
+            else
+                traffic_state = TRAFFIC_GREEN
+            end if
         end if
         if request_green == 0 then
             traffic_state = TRAFFIC_RED
@@ -366,7 +374,12 @@ procedure traffic_statemachine() is
         end block;
    end case
 
-   red_en = !red; ON HW ~RED !!
+   ; The real thing inverts the signal
+   if real_hw == 1 then
+       red_en = !red;
+   else
+       red_en = red;
+   end if
    green_en = green;
    yellow_en = yellow;
 

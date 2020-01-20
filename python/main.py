@@ -1,15 +1,9 @@
-import json
-import hashlib
-import time
 import sys
 import logging
 from configparser import SafeConfigParser
+from twisted.web.resource import Resource
 from twisted.web.server import Site
-from twisted.web.client import Agent
-from twisted.web import server, resource
-from twisted.web.resource import Resource, NoResource
-from twisted.protocols import basic
-from twisted.internet import reactor, endpoints, task
+from twisted.internet import reactor, endpoints
 from twisted.web.static import File
 from trafficlight import lightTypes
 from webserver import TrafficLightWeb, JSONAnswer
@@ -21,8 +15,8 @@ if len(sys.argv)<2:
 logging.basicConfig(level=logging.DEBUG)
 
 
-lights={}
-conf=SafeConfigParser()
+lights = {}
+conf = SafeConfigParser()
 conf.read(sys.argv[1])
 
 sections = conf.sections()
@@ -30,7 +24,7 @@ sections = conf.sections()
 if 'web' not in sections:
     port = 8880
 else:
-    port = conf.getint('web','http_port')
+    port = conf.getint('web', 'http_port')
 
 light_sections = sections[:]
 light_sections.remove('web')
@@ -43,27 +37,28 @@ for s in light_sections:
         continue
     lighttype = conf.get(s, 'type').strip()
     if lighttype not in lightTypes:
-        logging.error("{}: Type '{}' is unknown, valid would be {}".format(s, lighttype, list(lightTypes.keys())))
+        logging.error("{}: Type '{}' is unknown, valid would be {}".format(s, lighttype, lightTypes.keys()))
         continue
-    options = { k:conf.get(s, k) for k in conf.options(s) }
+    options = {k: conf.get(s, k) for k in conf.options(s)}
     del options['type']
 
     try:
         logging.info("Start {}".format(s))
         l = lightTypes[lighttype].open(name=s, **options)
-    except TypeError as e: # When option name is not known
+    except TypeError as e:  # When option name is not known
         logging.error("{}: {}".format(s, e))
         continue
     lights[s] = l
 
 
-root = File("../website/")
-
-print(lights)
+root = Resource()
+root.putChild("foo", File("/tmp"))
+static = File("../website/")
+root.putChild("static", static)
 
 interface = JSONAnswer(list(lights.keys()))
 #interface.putChild("status", TrafficLightWeb(local_light))
-root.putChild("interface", interface)
+#root.putChild("interface", interface)
 
 for s in lights:
     # After init, dereference symbolic names

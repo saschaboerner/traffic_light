@@ -3,6 +3,7 @@ traffic_light = function (subdir, root_element) {
 	this.error_count = 0;
 	this.subdir = subdir;
 	this.root_element = root_element;
+	this.group_key = "";
 	this.run=function(interval){
 		$.ajax(me.subdir, {
 			dataType: "json",
@@ -19,7 +20,8 @@ traffic_light = function (subdir, root_element) {
 	this.set_way=function(value){
 			$.post(me.subdir,
 				{
-					"giveway": value
+					"giveway": value,
+					"key": me.group_key
 				},
 			);
 		};
@@ -76,9 +78,34 @@ $("document").ready(function()
                 let name = data[x];
                 let local_copy = skel.clone();
                 local_copy.attr("id", name);
-                new traffic_light("/interface/local_light", local_copy);
+                new traffic_light("/interface/"+name, local_copy);
                 section.append(local_copy);
             }
 		},
 	});
 });
+
+function hex(x) { return (x.map(function (x) {return x.toString(16);})).join("") }
+
+transportWrapper={
+		key:'',
+		encapsulate: function(challenge, message){
+			message['_time'] = new Date();
+			message['challenge'] = challenge;
+			let hmac = new sha256.HMAC(transportWrapper.key);
+			let raw = JSON.stringify(message);
+			hmac.update(raw);
+			let result = { hash:hex(hmac.digest()),
+						   raw:raw};
+			return result;
+		},
+		decapsulate: function(message){
+			let hmac = new sha256.HMAC(transportWrapper.key);
+			hmac.update(message.raw);
+			if ( hex(hmac.digest()) === message.hash ){
+					return JSON.parse(message.raw);
+			} else {
+					return null;
+			}
+		},
+};
