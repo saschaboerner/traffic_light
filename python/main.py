@@ -8,7 +8,7 @@ from twisted.web.static import File
 from trafficlight import lightTypes
 from webserver import TrafficLightWeb, JSONAnswer
 
-if len(sys.argv)<2:
+if len(sys.argv) < 2:
     print("Please start with a config file name")
     sys.exit(0)
 
@@ -37,7 +37,8 @@ for s in light_sections:
         continue
     lighttype = conf.get(s, 'type').strip()
     if lighttype not in lightTypes:
-        logging.error("{}: Type '{}' is unknown, valid would be {}".format(s, lighttype, lightTypes.keys()))
+        logging.error("{}: Type '{}' is unknown, valid would be {}".format(s,
+                      lighttype, list(lightTypes.keys())))
         continue
     options = {k: conf.get(s, k) for k in conf.options(s)}
     del options['type']
@@ -51,21 +52,17 @@ for s in light_sections:
     lights[s] = l
 
 
-root = Resource()
-root.putChild("foo", File("/tmp"))
-static = File("../website/")
-root.putChild("static", static)
-
+root = File("../website/")
 interface = JSONAnswer(list(lights.keys()))
-#interface.putChild("status", TrafficLightWeb(local_light))
-#root.putChild("interface", interface)
+interface.putChild(b"status", TrafficLightWeb(lights['local_light']))
+root.putChild(b"interface", interface)
 
 for s in lights:
     # After init, dereference symbolic names
     lights[s].dereference(lights)
     # Finally add them to the web tree
-    interface.putChild(s, TrafficLightWeb(lights[s]))
-#root.putChild("auth", Authenticator())
+    interface.putChild(bytes(s.encode('ascii')), TrafficLightWeb(lights[s]))
+# root.putChild("auth", Authenticator())
 
 factory = Site(root)
 endpoint = endpoints.TCP4ServerEndpoint(reactor, port)
