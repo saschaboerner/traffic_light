@@ -1,9 +1,9 @@
 import json
 import logging
 import random
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import traceback
-from StringIO import StringIO
+from io import StringIO
 from twisted.web.client import FileBodyProducer
 from twisted.internet.serialport import SerialPort
 from twisted.internet import reactor, task
@@ -69,7 +69,7 @@ class TrafficLight(object):
 
     def from_json(self, raw):
         data = json.loads(raw)
-        print data
+        print(data)
         (self.state, self.batt_voltage, self.lamp_currents) = ( data["state"], data["batt_voltage"], data["lamp_currents"] )
         (self.give_way, self.temp_error) = ( data["give_way"], data["temp_error"] )
 
