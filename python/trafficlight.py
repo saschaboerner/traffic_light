@@ -57,6 +57,12 @@ class TrafficLight(object):
         return (time()-self.last_seen) < self.maxage
 
     def to_json(self, challenge):
+        '''
+        Returns the state of a traffic light in JSON
+        format.
+        If challenge is passed, the data packet it will be
+        encapsulated in a TransportWrapper.
+        '''
         data = {
             "state":self.state,
             "batt_voltage":self.batt_voltage,
@@ -68,7 +74,7 @@ class TrafficLight(object):
         if challenge is not None and self.transportWrapper is None:
             self.logger.error("missing transport wrapper")
         if challenge is not None and self.transportWrapper is not None:
-            return self.transportWrapper.encapsulate(challenge, data)
+            return bytes(self.transportWrapper.encapsulate(challenge, data).encode('utf8'))
         else:
             return bytes(json.dumps(data).encode('utf8'))
 
@@ -170,7 +176,7 @@ class TrafficLightController(basic.LineReceiver):
 class TrafficLightGroup(TrafficLight):
     # Names of all controller files to be scanned
     controller_names = ["{}{}".format(prefix, i)
-                        for i in range(20)
+                        for i in range(5)
                         for prefix in ["/dev/ttyUSB", '/dev/ttyACM']
                         ]
 

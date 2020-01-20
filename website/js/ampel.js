@@ -84,3 +84,28 @@ $("document").ready(function()
 		},
 	});
 });
+
+function hex(x) { return (x.map(function (x) {return x.toString(16);})).join("") }
+
+transportWrapper={
+		key:'',
+		encapsulate: function(challenge, message){
+			message['_time'] = new Date();
+			message['challenge'] = challenge;
+			let hmac = new sha256.HMAC(transportWrapper.key);
+			let raw = JSON.stringify(message);
+			hmac.update(raw);
+			let result = { hash:hex(hmac.digest()),
+						   raw:raw};
+			return result;
+		},
+		decapsulate: function(message){
+			let hmac = new sha256.HMAC(transportWrapper.key);
+			hmac.update(message.raw);
+			if ( hex(hmac.digest()) === message.hash ){
+					return JSON.parse(message.raw);
+			} else {
+					return null;
+			}
+		},
+};

@@ -77,6 +77,12 @@ class TrafficLightWeb(resource.Resource):
 
     # HTTP side
     def render_GET(self, request):
+        '''
+        Return this traffic lights state.
+        If the client sends a challenge, the whole
+        packet will be signed using a transportWrapper
+        from auth.py
+        '''
         challenge = None
         if 'challenge' in request.args:
             challenge = request.args['challenge'][0]
