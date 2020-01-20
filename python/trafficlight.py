@@ -411,6 +411,16 @@ class TrafficLightDummy(TrafficLight):
 
 
 class TrafficLightRemote(TrafficLight):
+    '''
+    Interface to a remote traffic light.
+
+    Uses the JSON GET/POST API and supports "signed"
+    messages using the auth.transportWrapper for a bit
+    better security.
+
+    Note that only groups can be written remotely!!
+    '''
+
     @classmethod
     def open(cls, name, url, interval):
         r = cls(url, float(interval))
@@ -459,6 +469,15 @@ class TrafficLightRemote(TrafficLight):
         except Exception as e:
             self.logger.debug(">>>>{}".format(e))
 
+    def force_set(self, giveway=None, temp_error=None):
+        '''
+        Can be used to force remote's state to a certain value.
+        Note this may fail if remote is not writable!
+        '''
+        body = {}
+        body['giveway'] = give_way
+
+
     def request_handler(self, response, challenge):
         d = readBody(response)
         # TODO maybe move it until validation?
@@ -483,16 +502,44 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
                   "max_off_current": 2
                   }
 
+    rx_timeout = 3
+
+    baud = 19200
+
     @classmethod
     def open(cls, name, port, reset_pin=None, reactor=reactor):
         local_light = cls()
         local_light.setLogger(logging.getLogger(name))
-        serial = SerialPort(baudrate=19200, deviceNameOrPortNumber=port,
+        serial = SerialPort(baudrate=cls.baud, deviceNameOrPortNumber=port,
                             protocol=local_light, reactor=reactor)
         local_light.setSerial(serial)
+        local_light.setPort(port)
         local_light.setReset(reset_pin)
+        local_light.reactor = reactor
         local_light.sendUpdate()
+        #reactor.call_later(cls.rx_timeout, local_light.timed_out)
         return local_light
+
+
+    def reopen(self):
+        '''
+        Tries to reestablish a serial link in case of HW issues
+        '''
+        print(dir(self.serial))
+
+        self.serial = SerialPort(baudrate=self.baud, deviceNameOrPortNumber=self.port,
+                            protocol=self, reactor=self.reactor)
+
+    def lineLengthExceeded(self, line):
+        logging.error("Line length exceeded/codeDecodeErrorbaud rate error?")
+        print(self.serial)
+        self.serial.loseConnection()
+        self.serial.stopReading()
+        self.reactor.callLater(1, self.reopen)
+        #self.reopen()
+
+    def setPort(self, port):
+        self.port = port
 
     def setSerial(self, serial):
         self.serial = serial
@@ -510,14 +557,15 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
             logging.error("Could not open/write exports in gpiofs: {}".format(e))
 
     def lineReceived(self, line):
+        print("lineReceived")
         # Ignore blank lines
         if not line:
             return
-        line = line.decode("ascii").strip()
         try:
+            line = line.decode("ascii").strip()
             (self.state, self.batt_voltage, self.error_state, self.lamp_currents[0], self.lamp_currents[1], self.lamp_currents[2]) = line.split(" ")
             self.last_seen = time()
-        except ValueError:
+        except (ValueError, UnicodeDecodeError):
             logging.info("Received garbled line")
         # logging.warning("update myself: {}".format(self))
 
