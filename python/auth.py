@@ -11,7 +11,11 @@ from twisted.web import resource
 class TransportWrapper(object):
 
     def __init__(self, key):
-        self.key = key
+        if key is None:
+            self.key = bytes()
+        else:
+            self.key = key.encode('utf-8')
+
         self.digestmod = hashlib.sha256
         self.charset = [x for x in string.printable.strip()]
 
@@ -23,19 +27,18 @@ class TransportWrapper(object):
         clone = copy.deepcopy(message)
         clone['_time'] = time.time()
         clone['challenge'] = challenge
-        raw = json.dumps(clone)
+        raw = json.dumps(clone).encode('utf-8')
         hashsum = HMAC(self.key, msg=raw, digestmod=self.digestmod).hexdigest()
 
-        return json.dumps({"raw": raw, "hash": hashsum})
+        return json.dumps({"raw": raw.decode('utf-8'), "hash": hashsum})
 
     def decapsulate(self, message, challenge):
         # assert(type(message) is str)
-        print(message)
         packet = json.loads(message.decode('utf-8'))
         if 'raw' not in packet or 'hash' not in packet:
             raise AttributeError("Packet malformatted")
 
-        hashsum = HMAC(self.key, msg=packet['raw'],
+        hashsum = HMAC(self.key, msg=packet['raw'].encode('utf-8'),
                        digestmod=self.digestmod).hexdigest()
 
         if not (hashsum == packet['hash']):
@@ -58,9 +61,7 @@ class Authenticator(resource.Resource, TransportWrapper):
         answer.
         """
         data = request.content.getvalue()
-        print(data)
         msg = self.decapsulate(data)
-        print(msg)
 
     def render_GET(self, request):
         return "hallo"

@@ -84,8 +84,8 @@ class TrafficLightWeb(resource.Resource):
         from auth.py
         '''
         challenge = None
-        if 'challenge' in request.args:
-            challenge = request.args['challenge'][0]
+        if b'challenge' in request.args:
+            challenge = request.args[b'challenge'][0].decode('utf-8')
 
         self.numberRequests += 1
         request.setHeader(b"content-type", b"text/plain")
@@ -123,15 +123,13 @@ class TrafficLightWeb(resource.Resource):
 
 
 class JSONAnswer(resource.Resource):
-    isLeaf = True
+    isLeaf = False
     numberRequests = 0
 
     def __init__(self, to_be_jsoned):
         self.data = to_be_jsoned
         resource.Resource.__init__(self)
-        print("HIER")
 
     # HTTP side
     def render_GET(self, request):
-        print("DORT")
         return bytes(json.dumps(self.data).encode('utf8'))
