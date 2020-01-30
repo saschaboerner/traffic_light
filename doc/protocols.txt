@@ -33,10 +33,26 @@ The PIC sends an newline-terminated ASCII string of space char separated values
 on regular basis. The fields are as follows:
 
 STATE			State of PIC state machine
-BATT_VOLTAGE	Voltage of battey pack
+ERROR_STATE	Error bits, see below
+BATT_VOLTAGE	Voltage of battey pack, in 1/100 Volt
 LAMP_CURRENT[0]	Current through lamp 0
 LAMP_CURRENT[1]	Current through lamp 1
 LAMP_CURRENT[2]	Current through lamp 2
+
+Definition of ERROR_STATE (16bit integer unsigned)
+
+Bit	Channel		Meaning
+0	RED		Max-OFF current exceeded
+1	RED		Min-ON current not reached
+2	RED		Max-ON current exceeded
+
+3	YELLOW		Max-OFF current exceeded
+4	YELLOW		Min-ON current not reached
+5	YELLOW		Max-ON current exceeded
+
+6	GREEN		Max-OFF current exceeded
+7	GREEN		Min-ON current not reached
+8	GREEN		Max-ON current exceeded
 
 Arduino <-> RPi
 ===============
