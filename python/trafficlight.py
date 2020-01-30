@@ -13,6 +13,11 @@ from auth import TransportWrapper
 
 
 class TrafficLight(object):
+    '''
+    Base class for traffic light implementation.
+    This provides a skeleton for creating either physical
+    interfaces or virtual traffic lights.
+    '''
 
     def __init__(self):
         self.logger = logging.getLogger()
@@ -29,10 +34,17 @@ class TrafficLight(object):
         self.transportWrapper = None
 
     def setGroupKey(self, key):
+        '''
+        Set shared secret (key) for all participants in
+        the system.
+        '''
         self.group_key = key
         self.transportWrapper = TransportWrapper(key)
 
     def isWritable(self, key):
+        '''
+        Test if this traffic light is writable from web interface.
+        '''
         if self.web_writeable:
             return True
         if self.group_key is None:
@@ -43,7 +55,8 @@ class TrafficLight(object):
 
     def dereference(self, names):
         '''
-        Dereferece symbolic names (if needed)
+        Dereferece symbolic names (if needed) after reading
+        of config has been finished.
         '''
         pass
 
@@ -54,6 +67,10 @@ class TrafficLight(object):
         self.read_only = read_only
 
     def seen(self):
+        '''
+        Test if the backend device has reported back
+        in the last time within the self.maxage time frame
+        '''
         return (time()-self.last_seen) < self.maxage
 
     def to_json(self, challenge):
@@ -79,6 +96,16 @@ class TrafficLight(object):
             return bytes(json.dumps(data).encode('utf8'))
 
     def from_json(self, raw, challenge=None):
+        '''
+        Recovers data from a JSON representation.
+        This has two operational modes:
+        
+        If challenge is None it simply reads in the JSON
+        data and sets internal state accordingly.
+
+        When a challenge is passed, it uses the transportWrapper
+        subsystem to ensure authenticty of message.
+        '''
         if challenge is None:
             data = json.loads(raw)
         else:
