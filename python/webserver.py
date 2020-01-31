@@ -95,25 +95,28 @@ class TrafficLightWeb(resource.Resource):
     def render_POST(self, request):
         data = request.args
         handled = False
+        logging.debug("POST: {}".format(data))
         # When no key is passed -> fail quickly
         try:
-            key = data['key'][0]
+            key = data[b'key'][0]
         except KeyError:
             key = None
+            logging.debug("POST: No password")
 
         if not self.myLight.isWritable(key):
+            logging.debug("POST: not writeable")
             return "not writeable"
 
-        if 'giveway' in data:
+        if b'giveway' in data:
             try:
-                value = int(data['giveway'][0])
+                value = int(data[b'giveway'][0])
             except:
                 return "value error"
             self.myLight.setGreen(value)
             handled = True
 
-        if 'temp_error' in data:
-            self.myLight.setTempError(bool(int(data['temp_error'][0])))
+        if b'temp_error' in data:
+            self.myLight.setTempError(bool(int(data[b'temp_error'][0])))
             handled = True
 
         if not handled:
