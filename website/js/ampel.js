@@ -61,9 +61,13 @@ traffic_light = function (subdir, root_element) {
 	$(".setgreen",this.root_element).click( function(){
 		me.set_way(1);
 	});
+	let groupkey = $(".groupkey",this.root_element);
+	groupkey.change(function(data){
+		me.group_key = groupkey.val();
+	});
 }
 
-
+traffic_lights=[];
 $("document").ready(function()
 {
 	$.ajax("/interface",
