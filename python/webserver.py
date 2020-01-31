@@ -117,9 +117,9 @@ class TrafficLightWeb(resource.Resource):
             handled = True
 
         if not handled:
-            return "not ok"
+            return b"not ok"
         else:
-            return "ok"
+            return b"ok"
 
 
 class JSONAnswer(resource.Resource):
