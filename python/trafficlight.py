@@ -110,6 +110,7 @@ class TrafficLight(object):
             data = json.loads(raw)
         else:
             data = self.transportWrapper.decapsulate(raw, challenge)
+        self.logger.error("data={}".format(data))
         if data is None:
             self.logger.error("Transport failed")
         (self.state, self.batt_voltage, self.lamp_currents) = (data["state"],
@@ -179,12 +180,16 @@ class TrafficLightController(basic.LineReceiver):
         self.group = group
 
     def lineReceived(self, line):
+        line = line.decode('utf-8')
+        logging.debug("TrafficLightController: received: {}".format(line))
         for c in line:
             if c == "g":
                 self.group.give_way = False
+                self.group.temp_error = False
                 self.group.sendUpdate()
             elif c == "G":
                 self.group.give_way = True
+                self.group.temp_error = False
                 self.group.sendUpdate()
             # TODO: Should we really discard siently?
 
@@ -193,7 +198,7 @@ class TrafficLightController(basic.LineReceiver):
         Wakeup callback from group instance,
         send information to handheld
         """
-        packet = ["1" if x > 10 else "0" for x in self.group.lamp_currents]
+        packet = ["1" if int(x) > 10 else "0" for x in self.group.lamp_currents]
         # FIXME: Classify Battery local/remote in good/bad
         packet += [str(self.group.state), str(self.group.batt_voltage)]
         cmd = " ".join(packet)
@@ -302,14 +307,14 @@ class TrafficLightGroup(TrafficLight):
         elif good is None:
             self.logger.info("Diverged, try to realign")
         else:
-            self.logger.debug("good")
+            self.logger.info("good")
             temperr = False
 
         if self.remote.seen() and not self.i_am_master:
             self.logger.info("Will try to sync from master remote.give_way={}, remote.temp_error={}".format(self.remote.temp_error, self.remote.give_way))
             # In case we don't have a local error, check remote side
             # if something is wrong there.
-            if good in (True, None):
+            if good in (True, None) and not self.i_am_master:
                 temperr = self.remote.temp_error
             self.setGreen(self.remote.give_way)
             self.sendUpdate()
@@ -584,7 +589,6 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
             logging.error("Could not open/write exports in gpiofs: {}".format(e))
 
     def lineReceived(self, line):
-        print("lineReceived")
         # Ignore blank lines
         if not line:
             return
