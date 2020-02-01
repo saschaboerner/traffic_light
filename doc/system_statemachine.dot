@@ -1,0 +1,28 @@
+digraph ampel{
+	gruen -> gelb [ label="Weg sperren"]; 
+	rot -> rot_gelb [ label="Weg öffnen"]; 
+	gelb_blink -> rot [ label="Weg sperren" ];
+	rankdir = LR;
+	subgraph cluster1 {
+		rankdir = TB;
+		margin = 50;
+	 	newrank = true;
+		label="Weg gesperrt";
+		fontname = "times bold";
+		gelb -> rot [label="2 Sek"];
+		labelloc = "b";
+	};
+	subgraph cluster2 {
+		rankdir = TB;
+		margin = 50;
+	 	newrank = true;
+		label="Weg offen";
+		fontname = "times bold";
+		gruen -> gelb_blink [ label="Störung"] ;
+		gelb_blink -> gruen [ label="OK" ];
+		rot_gelb -> gruen [label="2 sek"];
+		rot_gelb -> gelb_blink [ label="Störung" ];
+	};
+	{rank=same; rot_gelb rot ;}
+	{rank=same; gelb gelb_blink;}
+}
