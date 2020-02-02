@@ -1,0 +1,52 @@
+\documentclass{scrartcl}
+\usepackage[ngerman]{babel}
+\begin{document}
+\title{Ampelsteuerung VfL Wetzlar}
+\author{Peter Turczak}
+\date{2020-02-02}
+\maketitle
+\tableofcontents
+\clearpage
+\section{Allgemeines}
+Die durch Mitglieder des VfL Wetzlar hergestellte Ampelanlage dient zum Sperrung des "Schleusenweges" während des Flugbetriebs.
+
+Die Anlage besteht aus zwei Verkehrsampeln, welche über W-LAN mit einander verbunden und synchonisiert werden. Eine Ampel stellt dabei den "Master" da, die "Slave"-Ampel folgt der vorgenannten in ihrem Status.
+
+% TODO: Übersichtsdiagramm
+
+\section{Technische Beschreibung}
+\subsection{Sicherheitskonzept}
+Das Sicherheitskonzept ist in zwei Schichten ausgeführt. So wird auf eletronischer Ebene bereits eine Plausibitätsprüfung des Zustands durchgeführt.
+
+In der Software-Schicht wird die Synchcronisierung beider Ampeln realisiert. Diese enthält Maßnahmen die z.B. eine Unterbrechung der Verbindung zwischen den Geräten möglichst sicher handhabt.
+\subsection{Elektronik}
+Die Steuerung der Ampel und ihrer Leuchtmittel wird über eine eigens entwickelte Leiterplatte realisiert. Diese benutzt einen PIC 16F690 für die logischen Abläufe.
+
+Vorteil dieser Lösung ist es, dass das Programm des Microcrontrollers bewusst nicht über den Raspberry PI verändert werden kann. Somit wird verhindert, dass persistente Malware den Ablauf auf Hardware-Ebene verändern kann. Daher wird der PIC und sein Programm von hier ab als unveränderliche Hardware betrachtet.
+
+Um sicherzustellen, dass zu jedem Zeitpunkt die richtigen Leuchtmittel aktiv sind bzw. nicht aktiv sind, wird nicht nur die Versorgungsspannung der Leuchtmittel geschaltet. Sondern auch der Strom durch dies wird jederzeit überwacht. Hiermit können unter anderem fehlende/defekte LED-Einsätze gefunden werden, Kurzschlüsse und Verkabelungsfehler erkannt werden. Im PIC sind folgende Parameter für die Stromüberwachung vorhanden:
+\begin{enumerate}
+	\item Mindeststrom bei eingeschaltetem Leuchtmittel
+	\item Maximalstrom bei eingeschaltetem Leuchtmittel
+	\item Maximalstrom bei ausgeschaltetem Leuchtmittel
+\end{enumerate}
+Letzerer wird primär zum Erkennen von Kurzschlüssen und Krichströmen verwendet.
+
+Sollte der Strom eines Leuchmittels ausserhalb der genannten Grenzen liegen, so geht die Hardware in einen Fehlerzustand, in dem die gelbe Lampe langsam blinkt, also mit einer An- und Aus-Zeit von zwei Sekunden.
+
+Ein Fehlerzustand der Hardware kann nur durch einen Hardware-Reset, d.H. aus- und einschalten, beendet werden.
+
+\subsection{Sofware}
+Die Software im Raspberry PI hat die Aufgabe, die beiden Ampeln mit einander zu synchronisieren.
+
+\section{Benutzung}
+\subsection{Aufstellen}
+\subsection{Sperren/Freigeben des Weges}
+\subsection{Abbau}
+\subsection{Lagerung}
+
+\section{Wartung}
+\subsection{Hardware}
+\subsection{Software}
+
+\end{document}
