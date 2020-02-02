@@ -1,5 +1,7 @@
-\documentclass{scrartcl}
-\usepackage[ngerman]{babel}
+\documentclass[a4paper, ngerman]{scrartcl}
+\usepackage{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
 \begin{document}
 \title{Ampelsteuerung VfL Wetzlar}
 \author{Peter Turczak}
@@ -37,7 +39,25 @@ Sollte der Strom eines Leuchmittels ausserhalb der genannten Grenzen liegen, so 
 Ein Fehlerzustand der Hardware kann nur durch einen Hardware-Reset, d.H. aus- und einschalten, beendet werden.
 
 \subsection{Sofware}
-Die Software im Raspberry PI hat die Aufgabe, die beiden Ampeln mit einander zu synchronisieren.
+Die Software im Raspberry PI hat die Aufgabe, die beiden Ampeln mit einander zu synchronisieren. Hierbei gibt es im Grunde zwei Zustände:
+\begin{itemize}
+	\item Weg freigegeben:\\
+		Die Ampel sollten Grün zeigen
+	\item Weg gesperrt:\\
+		Beide sollten Rot anzeigen
+\end{itemize}
+
+Beide Ampeln benutzen das HTTP-Protokoll um sich mit einander zu synchonisieren, indem jeweils der Status der jeweils anderen abgefragt wird. Um Fälschungen von Statuspaketen zu erschweren, wird zwischen allen Teilnehmer ein sogeannter Group-Key abgelegt. Mit dessen Hilfe werden die Prüf-Hashes (Cryptographisch sichere Prüfsummen) vermischt, sodass Außenstehende die Pakete nicht fälschen können.
+
+Der Zustand der als "Master" bezeichneten Ampel wird von der als "Slave" bezeichneten Ampel verfolgt. 
+
+Sollte die Synchronisation wegen fehlender Verbindung nicht funktionieren, so versuchen beide Teilnehmer weiterhin eine Verbindung aufzubauen. Hierbei kommt es auf den Zustand des Systems an, wie darauf reagiert wird.
+
+Ist der Weg gesperrt, so bleiben beide Ampeln rot. War der Weg freigegeben, so blinken die Ampel solange gelb, bis sie wieder synchron ist. So wird sichergestellt, dass im Zweifel lieber der Weg gesperrt wird.
+
+\begin{figure}
+	\includegraphics[keepaspectratio, width=\textwidth]{system_statemachine.pdf}
+\end{figure}
 
 \section{Benutzung}
 \subsection{Aufstellen}
