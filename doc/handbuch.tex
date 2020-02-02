@@ -2,17 +2,24 @@
 \usepackage{babel}
 \usepackage{geometry}
 \usepackage{graphicx}
+\usepackage{fontspec}
+%\usepackage{helvet}
+%\renewcommand{\familydefault}{\sfdefault}
+\setmainfont{Liberation Sans}
+\setsansfont{Liberation Sans}
+
 \begin{document}
 \title{Ampelsteuerung VfL Wetzlar}
 \author{Peter Turczak}
 \date{2020-02-02}
+
 \maketitle
 \tableofcontents
 \clearpage
 \section{Allgemeines}
 Die durch Mitglieder des VfL Wetzlar hergestellte Ampelanlage dient zum Sperrung des "Schleusenweges" während des Flugbetriebs.
 
-Die Anlage besteht aus zwei Verkehrsampeln, welche über W-LAN mit einander verbunden und synchonisiert werden. Eine Ampel stellt dabei den "Master" da, die "Slave"-Ampel folgt der vorgenannten in ihrem Status.
+Die Anlage besteht aus zwei Verkehrsampeln, welche über W-LAN mit einander verbunden und synchronisiert werden. Eine Ampel stellt dabei den "Master" da, die "Slave"-Ampel folgt der vorgenannten in ihrem Status.
 
 \begin{figure}
 	\includegraphics[keepaspectratio, width=.7\textwidth, angle=270]{Ampel_Uebersicht.pdf}
@@ -21,13 +28,13 @@ Die Anlage besteht aus zwei Verkehrsampeln, welche über W-LAN mit einander verb
 
 \section{Technische Beschreibung}
 \subsection{Sicherheitskonzept}
-Das Sicherheitskonzept ist in zwei Schichten ausgeführt. So wird auf eletronischer Ebene bereits eine Plausibitätsprüfung des Zustands durchgeführt.
+Das Sicherheitskonzept ist in zwei Schichten ausgeführt. So wird auf elektronischer Ebene bereits eine Plausibitätsprüfung des Leuchtmittel-Zustands durchgeführt. Die festen Muster (Rot, Rot-Gelb, Grün, Gelb und Gelb blinkend) werden durch die Hardware vorgegeben und können nur in definierten Abfolgen geschaltet werden.
 
-In der Software-Schicht wird die Synchcronisierung beider Ampeln realisiert. Diese enthält Maßnahmen die z.B. eine Unterbrechung der Verbindung zwischen den Geräten möglichst sicher handhabt.
+In der Software-Schicht wird die Synchronisierung beider Ampeln realisiert. Diese enthält Maßnahmen die z.B. eine Unterbrechung der Verbindung zwischen den Geräten möglichst sicher handhabt.
 \subsection{Elektronik}
 Die Steuerung der Ampel und ihrer Leuchtmittel wird über eine eigens entwickelte Leiterplatte realisiert. Diese benutzt einen PIC 16F690 für die logischen Abläufe.
 
-Vorteil dieser Lösung ist es, dass das Programm des Microcrontrollers bewusst nicht über den Raspberry PI verändert werden kann. Somit wird verhindert, dass persistente Malware den Ablauf auf Hardware-Ebene verändern kann. Daher wird der PIC und sein Programm von hier ab als unveränderliche Hardware betrachtet.
+Vorteil dieser Lösung ist es, dass das Programm des Mikrocontrollers bewusst nicht über den Raspberry PI verändert werden kann. Somit wird verhindert, dass persistente Malware den Ablauf auf Hardware-Ebene verändern kann. Daher wird der PIC und sein Programm von hier ab als unveränderliche Hardware betrachtet.
 
 Um sicherzustellen, dass zu jedem Zeitpunkt die richtigen Leuchtmittel aktiv sind bzw. nicht aktiv sind, wird nicht nur die Versorgungsspannung der Leuchtmittel geschaltet. Sondern auch der Strom durch dies wird jederzeit überwacht. Hiermit können unter anderem fehlende/defekte LED-Einsätze gefunden werden, Kurzschlüsse und Verkabelungsfehler erkannt werden. Im PIC sind folgende Parameter für die Stromüberwachung vorhanden:
 \begin{enumerate}
@@ -35,11 +42,11 @@ Um sicherzustellen, dass zu jedem Zeitpunkt die richtigen Leuchtmittel aktiv sin
 	\item Maximalstrom bei eingeschaltetem Leuchtmittel
 	\item Maximalstrom bei ausgeschaltetem Leuchtmittel
 \end{enumerate}
-Letzerer wird primär zum Erkennen von Kurzschlüssen und Krichströmen verwendet.
+Letzterer wird primär zum Erkennen von Kurzschlüssen und Kriechströmen verwendet.
 
-Sollte der Strom eines Leuchmittels ausserhalb der genannten Grenzen liegen, so geht die Hardware in einen Fehlerzustand, in dem die gelbe Lampe langsam blinkt, also mit einer An- und Aus-Zeit von zwei Sekunden.
+Sollte der Strom eines Leuchmittels außerhalb der genannten Grenzen liegen, so geht die Hardware in einen Fehlerzustand, in dem die gelbe Lampe langsam blinkt, also mit einer An- und Aus-Zeit von zwei Sekunden.
 
-Ein Fehlerzustand der Hardware kann nur durch einen Hardware-Reset, d.H. aus- und einschalten, beendet werden.
+Ein Fehlerzustand der Hardware kann nur durch einen Hardware-Reset, d.H. aus- und einschalten bzw. ein digitales Signal vom Raspberry PI-Prozessor zum PIC, beendet werden.
 
 \begin{figure}
 	\includegraphics[keepaspectratio, width=\textwidth]{../pic/ampel.pdf}
@@ -55,7 +62,7 @@ Die Software im Raspberry PI hat die Aufgabe, die beiden Ampeln mit einander zu 
 		Beide sollten Rot anzeigen
 \end{itemize}
 
-Beide Ampeln benutzen das HTTP-Protokoll um sich mit einander zu synchonisieren, indem jeweils der Status der jeweils anderen abgefragt wird. Um Fälschungen von Statuspaketen zu erschweren, wird zwischen allen Teilnehmer ein sogeannter Group-Key abgelegt. Mit dessen Hilfe werden die Prüf-Hashes (Cryptographisch sichere Prüfsummen) vermischt, sodass Außenstehende die Pakete nicht fälschen können.
+Beide Ampeln benutzen das HTTP-Protokoll um sich mit einander zu synchonisieren, indem jeweils der Status der jeweils anderen abgefragt wird. Um Fälschungen von Statuspaketen zu erschweren, wird zwischen allen Teilnehmer ein sogenannter Group-Key abgelegt. Mit dessen Hilfe werden die Prüf-Hashes (Kryptographisch sichere Prüfsummen) vermischt, sodass Außenstehende die Pakete nicht fälschen können.
 
 Der Zustand der als "Master" bezeichneten Ampel wird von der als "Slave" bezeichneten Ampel verfolgt. 
 
