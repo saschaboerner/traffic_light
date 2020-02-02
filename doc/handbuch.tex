@@ -38,10 +38,15 @@ Sollte der Strom eines Leuchmittels ausserhalb der genannten Grenzen liegen, so 
 
 Ein Fehlerzustand der Hardware kann nur durch einen Hardware-Reset, d.H. aus- und einschalten, beendet werden.
 
+\begin{figure}
+	\includegraphics[keepaspectratio, width=\textwidth]{../pic/ampel.pdf}
+	\caption{Statusübersicht der Hardware}
+\end{figure}
+
 \subsection{Sofware}
 Die Software im Raspberry PI hat die Aufgabe, die beiden Ampeln mit einander zu synchronisieren. Hierbei gibt es im Grunde zwei Zustände:
 \begin{itemize}
-	\item Weg freigegeben:\\
+	\item Weg offen:\\
 		Die Ampel sollten Grün zeigen
 	\item Weg gesperrt:\\
 		Beide sollten Rot anzeigen
@@ -57,6 +62,7 @@ Ist der Weg gesperrt, so bleiben beide Ampeln rot. War der Weg freigegeben, so b
 
 \begin{figure}
 	\includegraphics[keepaspectratio, width=\textwidth]{system_statemachine.pdf}
+	\caption{Statusübersicht der Software}
 \end{figure}
 
 \section{Benutzung}
