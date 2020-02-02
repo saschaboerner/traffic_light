@@ -13,4 +13,4 @@ digraph ampel {
    red -> red_yellow [label="request_green"];
    red_yellow -> green [label="3sec"];
    red -> yellow_blink [label="vbatt low || ired==0 || i(x)!=0"]
-};
+}
