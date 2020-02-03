@@ -32,12 +32,14 @@ class TrafficLight(object):
         self.web_writeable = False
         self.group_key = None
         self.transportWrapper = None
+        self.hardware_errors = []
 
     def setGroupKey(self, key):
         '''
         Set shared secret (key) for all participants in
         the system.
         '''
+        self.logger.info("Setting group key: {}".format(key))
         self.group_key = key
         self.transportWrapper = TransportWrapper(key)
 
@@ -86,7 +88,8 @@ class TrafficLight(object):
             "lamp_currents":self.lamp_currents,
             "good":self.isGood(),
             "give_way":self.give_way,
-            "temp_error":self.temp_error
+            "temp_error":self.temp_error,
+            "hw_errors":self.hardware_errors
             }
         if challenge is not None and self.transportWrapper is None:
             self.logger.error("missing transport wrapper")
@@ -536,6 +539,10 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
 
     rx_timeout = 3
 
+    error_bits = { 1: "Idle current",
+                   2: "Undercurrent",
+                   3: "Overcurrent"
+                }
     baud = 19200
 
     @classmethod
@@ -557,8 +564,6 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
         '''
         Tries to reestablish a serial link in case of HW issues
         '''
-        print(dir(self.serial))
-
         self.serial = SerialPort(baudrate=self.baud, deviceNameOrPortNumber=self.port,
                             protocol=self, reactor=self.reactor)
 
@@ -596,10 +601,24 @@ class TrafficLightSerial(basic.LineReceiver, TrafficLight):
             line = line.decode("ascii").strip()
             (self.state, self.batt_voltage, self.error_state, self.lamp_currents[0], self.lamp_currents[1], self.lamp_currents[2]) = line.split(" ")
             self.last_seen = time()
+            self.decodeErorState()
         except (ValueError, UnicodeDecodeError):
             logging.info("Received garbled line")
         # logging.warning("update myself: {}".format(self))
 
+    def decodeErorState(self):
+        '''
+        Decodes bitmapped error state to human and machine readable form
+        '''
+        self.hardware_errors = []
+        i = int(self.error_state)
+        for color in "red,yellow,green".split(','):
+            for bit in self.error_bits:
+                if i & bit:
+                    self.hardware_errors.append(color+" "+self.error_bits[bit]) 
+            i = i >> 3
+        if self.hardware_errors:
+            self.logger.warning("Got errors for hardware: {}".format(self.hardware_errors))
     def setConfig(self, param, value):
         if param in self.config_map:
             cmd = "s{}={}".format(self.config_map[param], int(value))
