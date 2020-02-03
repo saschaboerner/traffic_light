@@ -4,9 +4,9 @@
 \usepackage{graphicx}
 \usepackage{fontspec}
 %\usepackage{helvet}
-%\renewcommand{\familydefault}{\sfdefault}
-\setmainfont{Liberation Sans}
-\setsansfont{Liberation Sans}
+\renewcommand{\familydefault}{\sfdefault}
+%\setmainfont{Liberation Sans}
+%\setsansfont{Liberation Sans}
 
 \begin{document}
 \title{Ampelsteuerung VfL Wetzlar}
@@ -77,12 +77,36 @@ Ist der Weg gesperrt, so bleiben beide Ampeln rot. War der Weg freigegeben, so b
 
 \section{Benutzung}
 \subsection{Aufstellen}
+Die beiden Ampeln werden zu ihren jeweiligen Aufstellorten entlang des Schleusenwegs gefahren, deren genaue Lage ist in der Flugplatzgenehmigung ersichtlich.
+
+Ein Verankern in Boden ist gegenwärtig nicht vorgesehen, also muss auf sicheren Stand geachtet werden. Die "Master"-Ampel wird auf der Hallenseite des Schleusenweges abgestellt, die Slave-Ampel in Richung Garbenheim. Beide können auch schon von dem Aufstellen eingeschaltet werden, müssen allerdings spätestens eingeschaltet werden, wenn sie an ihrem Standort aufgestellt wurden.
+
+Um ein Ausschalten durch Dritte zu verhindern, können die Hauptschalter beispielsweise mittels einer Fokkernadel oder eines Vorhängeschlosses im "Ein"-Zustand arretiert werden.
+
+Nach dem Einschalten sollten die Ampeln zunächst einen Lampentest durchführen, d.H. von Rot aus werden alle Lampen für jeweils zwei Sekunden eingeschaltet und dann die nächste dazu genommen. Somit sollten dann kurzfristig alle Lampen leuchten. Wenn hierbei ein Fehler auftritt, blinkt die Betroffene Ampel langsam (jeweils zwei Sekunden ein und aus).
+
+Das Bedienteil sollte spätestens zum Flugbetriebsbeginn eingesteckt werden, hier sollte innerhalb weniger Sekunden der Status beider Ampeln sichtbar sein.
+
+Während der Synchronisation der Ampeln blinken beide gelb schnell (je eine Sekunde ein und aus). Sobald die erste Synchronisierung nach dem Einschalten abgeschlossen ist, sollten beide Grün zeigen.
+
 \subsection{Sperren/Freigeben des Weges}
+Der Weg kann auf zwei Arten freigegeben bzw. gesperrt werden.
+
+Im Normalfall kann dies mit dem Bedienteil erfolgen. Durch Druck auf den roten Taster wird der Weg gesperrt, d.H. die Ampeln schalten auf Rot.  Sobald das Bedienteil auf beiden Ampeln rot zeigt, sind auch beide Ampeln sicher rot. Dies wird durch die regelmäßige Synchronisierung sichergestellt.
+
+Ein Druck auf den grünen Taster gibt den Weg frei, d.H. die Ampeln schalten auf Grün.
+
+Alternativ kann das Ampelsystem auch über eine Webschnittstelle vom Start aus gesteuert werden, hierzu muss der "Gruppenschlüssel" eingegeben werden. Auch dies soll verhindern, dass unberechtigte Dritte die Ampeln beeinflussen können. Diese Oberfläche ist noch in der Entwicklung daher relativ wenig intuitiv. Dies soll in den nächsten Versionen geändert werden.
+
 \subsection{Abbau}
+Am Ende des Flugbetriebs können die Ampeln einfach an deren Hauptschaltern abgeschaltet werden.
+
 \subsection{Lagerung}
+Nach dem Einräumen in die Halle sind die Ampeln aufzuladen! Hierzu werden spezielle Kabel mit dem sogenannten "Powercon"-Stecker verwendet. Es stehen zwei Stück zur Verfügung. Die Batterien sind nicht darauf ausgelegt, mehrere Tage hintereinander nur entladen zu werden!
 
 \section{Wartung}
 \subsection{Hardware}
 \subsection{Software}
 
+\section{Anhang}
 \end{document}
