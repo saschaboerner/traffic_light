@@ -17,9 +17,9 @@
 \tableofcontents
 \clearpage
 \section{Allgemeines}
-Die durch Mitglieder des VfL Wetzlar hergestellte Ampelanlage dient zum Sperrung des "Schleusenweges" während des Flugbetriebs.
+Die durch Mitglieder des VfL Wetzlar hergestellte Ampelanlage dient zum Sperrung des "{}Schleusenweges"{} während des Flugbetriebs.
 
-Die Anlage besteht aus zwei Verkehrsampeln, welche über W-LAN mit einander verbunden und synchronisiert werden. Eine Ampel stellt dabei den "Master" da, die "Slave"-Ampel folgt der vorgenannten in ihrem Status.
+Die Anlage besteht aus zwei Verkehrsampeln, welche über W-LAN mit einander verbunden und synchronisiert werden. Eine Ampel stellt dabei den "{}Master"{} da, die "{}Slave"{}-Ampel folgt der vorgenannten in ihrem Status.
 
 \begin{figure}
 	\includegraphics[keepaspectratio, width=.7\textwidth, angle=270]{Ampel_Uebersicht.pdf}
@@ -64,7 +64,7 @@ Die Software im Raspberry PI hat die Aufgabe, die beiden Ampeln mit einander zu 
 
 Beide Ampeln benutzen das HTTP-Protokoll um sich mit einander zu synchonisieren, indem jeweils der Status der jeweils anderen abgefragt wird. Um Fälschungen von Statuspaketen zu erschweren, wird zwischen allen Teilnehmer ein sogenannter Group-Key abgelegt. Mit dessen Hilfe werden die Prüf-Hashes (Kryptographisch sichere Prüfsummen) vermischt, sodass Außenstehende die Pakete nicht fälschen können.
 
-Der Zustand der als "Master" bezeichneten Ampel wird von der als "Slave" bezeichneten Ampel verfolgt. 
+Der Zustand der als "{}Master"{} bezeichneten Ampel wird von der als "{}Slave"{} bezeichneten Ampel verfolgt. 
 
 Sollte die Synchronisation wegen fehlender Verbindung nicht funktionieren, so versuchen beide Teilnehmer weiterhin eine Verbindung aufzubauen. Hierbei kommt es auf den Zustand des Systems an, wie darauf reagiert wird.
 
@@ -79,9 +79,9 @@ Ist der Weg gesperrt, so bleiben beide Ampeln rot. War der Weg freigegeben, so b
 \subsection{Aufstellen}
 Die beiden Ampeln werden zu ihren jeweiligen Aufstellorten entlang des Schleusenwegs gefahren, deren genaue Lage ist in der Flugplatzgenehmigung ersichtlich.
 
-Ein Verankern in Boden ist gegenwärtig nicht vorgesehen, also muss auf sicheren Stand geachtet werden. Die "Master"-Ampel wird auf der Hallenseite des Schleusenweges abgestellt, die Slave-Ampel in Richung Garbenheim. Beide können auch schon von dem Aufstellen eingeschaltet werden, müssen allerdings spätestens eingeschaltet werden, wenn sie an ihrem Standort aufgestellt wurden.
+Ein Verankern in Boden ist gegenwärtig nicht vorgesehen, also muss auf sicheren Stand geachtet werden. Die "{}Master"{}-Ampel wird auf der Hallenseite des Schleusenweges abgestellt, die Slave-Ampel in Richung Garbenheim. Beide können auch schon von dem Aufstellen eingeschaltet werden, müssen allerdings spätestens eingeschaltet werden, wenn sie an ihrem Standort aufgestellt wurden.
 
-Um ein Ausschalten durch Dritte zu verhindern, können die Hauptschalter beispielsweise mittels einer Fokkernadel oder eines Vorhängeschlosses im "Ein"-Zustand arretiert werden.
+Um ein Ausschalten durch Dritte zu verhindern, können die Hauptschalter beispielsweise mittels einer Fokkernadel oder eines Vorhängeschlosses im "{}Ein"{}-Zustand arretiert werden.
 
 Nach dem Einschalten sollten die Ampeln zunächst einen Lampentest durchführen, d.H. von Rot aus werden alle Lampen für jeweils zwei Sekunden eingeschaltet und dann die nächste dazu genommen. Somit sollten dann kurzfristig alle Lampen leuchten. Wenn hierbei ein Fehler auftritt, blinkt die Betroffene Ampel langsam (jeweils zwei Sekunden ein und aus).
 
@@ -96,13 +96,13 @@ Im Normalfall kann dies mit dem Bedienteil erfolgen. Durch Druck auf den roten T
 
 Ein Druck auf den grünen Taster gibt den Weg frei, d.H. die Ampeln schalten auf Grün.
 
-Alternativ kann das Ampelsystem auch über eine Webschnittstelle vom Start aus gesteuert werden, hierzu muss der "Gruppenschlüssel" eingegeben werden. Auch dies soll verhindern, dass unberechtigte Dritte die Ampeln beeinflussen können. Diese Oberfläche ist noch in der Entwicklung daher relativ wenig intuitiv. Dies soll in den nächsten Versionen geändert werden.
+Alternativ kann das Ampelsystem auch über eine Webschnittstelle vom Start aus gesteuert werden, hierzu muss der "{}Gruppenschlüssel"{} eingegeben werden. Auch dies soll verhindern, dass unberechtigte Dritte die Ampeln beeinflussen können. Diese Oberfläche ist noch in der Entwicklung daher relativ wenig intuitiv. Dies soll in den nächsten Versionen geändert werden.
 
 \subsection{Abbau}
 Am Ende des Flugbetriebs können die Ampeln einfach an deren Hauptschaltern abgeschaltet werden.
 
 \subsection{Lagerung}
-Nach dem Einräumen in die Halle sind die Ampeln aufzuladen! Hierzu werden spezielle Kabel mit dem sogenannten "Powercon"-Stecker verwendet. Es stehen zwei Stück zur Verfügung. Die Batterien sind nicht darauf ausgelegt, mehrere Tage hintereinander nur entladen zu werden!
+Nach dem Einräumen in die Halle sind die Ampeln aufzuladen! Hierzu werden spezielle Kabel mit dem sogenannten "{}Powercon"{}-Stecker verwendet. Es stehen zwei Stück zur Verfügung. Die Batterien sind nicht darauf ausgelegt, mehrere Tage hintereinander nur entladen zu werden!
 
 \section{Wartung}
 \subsection{Hardware}
