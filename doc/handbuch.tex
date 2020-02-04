@@ -83,7 +83,7 @@ Ein Verankern in Boden ist gegenwärtig nicht vorgesehen, also muss auf sicheren
 
 Um ein Ausschalten durch Dritte zu verhindern, können die Hauptschalter beispielsweise mittels einer Fokkernadel oder eines Vorhängeschlosses im "{}Ein"{}-Zustand arretiert werden.
 
-Nach dem Einschalten sollten die Ampeln zunächst einen Lampentest durchführen, d.H. von Rot aus werden alle Lampen für jeweils zwei Sekunden eingeschaltet und dann die nächste dazu genommen. Somit sollten dann kurzfristig alle Lampen leuchten. Wenn hierbei ein Fehler auftritt, blinkt die Betroffene Ampel langsam (jeweils zwei Sekunden ein und aus).
+Nach dem Einschalten sollten die Ampeln zunächst einen Lampentest durchführen, d.H. von Rot aus werden alle Lampen für jeweils zwei Sekunden eingeschaltet und dann die nächste dazu genommen. Somit sollten dann kurzfristig alle Lampen leuchten. Wenn hierbei ein Fehler auftritt, blinkt die betroffene Ampel langsam (jeweils zwei Sekunden ein und aus).
 
 Das Bedienteil sollte spätestens zum Flugbetriebsbeginn eingesteckt werden, hier sollte innerhalb weniger Sekunden der Status beider Ampeln sichtbar sein.
 
@@ -106,7 +106,19 @@ Nach dem Einräumen in die Halle sind die Ampeln aufzuladen! Hierzu werden spezi
 
 \section{Wartung}
 \subsection{Hardware}
+\subsubsection{Ersatzteile}
+Folgende Ersatzteile sind für die Ampelanlage vorzuhalten:
+\begin{itemize}
+ \item LED-Leuchtmittel (B15D)\\
+	Hierbei sollte darauf geachtet werden, diese in "{}Warmweiß"{} zu bestellen, oder bevorzugt direkt in der Farbe der jeweiligen Ampelfarbe. Da die Hardware maximal 1A liefern kann, sind also nur Leuchtmittel mit maximal 12W Leistungsaufnahme möglich! Keine Glühbirnen verwenden!
+ \item Akku\\
+	Als Akku sind zyklenfeste 12V Batterien der sogenannten AGM bzw. notfalls EFB/AFB Technologie zu verwenden. AGM Zellen sind resistenter gegen Tiefentladung und sind zu bevorzugen.
+ \item Feinsicherungen (1A)\\
+	In der Ampel werden zur Absicherung der Leuchtmittel Feinsicherungen 230V/1A mittelträge verwendet. Ein Ersatz der Sicherungen sollte nur mit genau diesen Typen erfolgen.
+\end{itemize}
 \subsection{Software}
 
 \section{Anhang}
+\subsection{Schaltplan Steuerungsplatine}
+\includegraphics[keepaspectratio, width=\textwidth, angle=90]{../schematic/Ampel_SCH.pdf}
 \end{document}
