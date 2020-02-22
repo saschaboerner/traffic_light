@@ -464,7 +464,7 @@ class TrafficLightRemote(TrafficLight):
         self.poll_loop = task.LoopingCall(self.poll_remote)
         self.agent = Agent(reactor)
         self.remote_url = url
-        self.running_request = None
+        self.running_requests = {}
         self.error_count = 0
         self.poll_loop.start(interval).addErrback(log.err)
 
@@ -474,20 +474,23 @@ class TrafficLightRemote(TrafficLight):
         self.error_count = 0
         d.addCallback(self.on_update_answer_received)
         d.addErrback(log.err)
-        self.running_request = None
         return d
 
     def on_update_answer_received(self, data):
         if not data.strip() == "ok":
             logging.error("Something went wrong trying to update remote.. Answer was:{}".format(data.strip()))
 
+    def poll_error(self, failure, starttime):
+        '''
+        When a request fails, clean up the waiting list
+        '''
+        self.logger.error(failure)
+        del self.running_requests[starttime]
+
     def poll_remote(self):
         '''
         Polls remote host to get its state
         '''
-        if self.running_request is not None:
-            self.error_count += 1
-            self.running_request.cancel()
 
         try:
             # FIXME: might fail on first iteration as transportWrapper is not
@@ -495,9 +498,12 @@ class TrafficLightRemote(TrafficLight):
             challenge = self.transportWrapper.makeChallenge()
             url = self.remote_url + "?" + urllib.parse.urlencode({"challenge": challenge})
             url = bytes(url.encode("ascii"))
-            self.running_request = self.agent.request(b"GET", url)
-            self.running_request.addCallback(self.request_handler, challenge)
-            self.running_request.addErrback(log.err)
+            starttime = time()
+            req = self.agent.request(b"GET", url)
+            req.addCallback(self.request_handler, challenge, starttime)
+            req.addErrback(self.poll_error, starttime)
+            self.running_requests[starttime] = req
+            self.logger.debug("len(running_requests)={}".format(len(self.running_requests)))
         except Exception as e:
             self.logger.debug(">>>>{}".format(e))
 
@@ -510,19 +516,30 @@ class TrafficLightRemote(TrafficLight):
         body['giveway'] = give_way
 
 
-    def request_handler(self, response, challenge):
+    def request_handler(self, response, challenge, starttime):
         d = readBody(response)
         # TODO maybe move it until validation?
         self.error_count = 0
-        d.addCallback(self.on_data_received, challenge)
+        d.addCallback(self.on_data_received, challenge, starttime)
         d.addErrback(log.err)
-        self.running_request = None
         return d
 
-    def on_data_received(self, body, challenge):
+    def on_data_received(self, body, challenge, starttime):
+        if starttime not in self.running_requests:
+            # This can only be triggered by a race condition between this
+            # function cancelling a request and getting data. Not sure how
+            # twisted handled this in the background, just catch it before
+            # bad things happen
+            self.logger.warning("State data arrived too late, discarding")
+            return
         self.logger.debug("body={}".format(body))
         self.from_json(body, challenge)
-        self.last_seen = time()
+        self.last_seen = starttime
+        # Now purge old requests
+        stale_requests = [ started for started in self.running_requests if started < self.last_seen ]
+        for started in stale_requests:
+            self.running_requests[started].cancel()
+            del self.running_requests[started]
 
 
 class TrafficLightSerial(basic.LineReceiver, TrafficLight):
