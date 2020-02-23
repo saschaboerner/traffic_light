@@ -110,7 +110,7 @@ class TrafficLight(object):
             data = json.loads(raw)
         else:
             data = self.transportWrapper.decapsulate(raw, challenge)
-        self.logger.error("data={}".format(data))
+        self.logger.debug("data={}".format(data))
         if data is None:
             self.logger.error("Transport failed")
         (self.state, self.batt_voltage, self.lamp_currents) = (data["state"],
@@ -383,7 +383,7 @@ class TrafficLightDummy(TrafficLight):
         self.fail_lamp = False
 
         self.fail_loop.start(.5) .addErrback(self.error)
-        self.run_loop.start(2) .addErrback(self.error)
+        self.run_loop.start(1) .addErrback(self.error)
 
     def sendUpdate(self):
         if self.read_only:
@@ -406,8 +406,10 @@ class TrafficLightDummy(TrafficLight):
         self.fail_lamp = False
 
     def run(self):
+        self.logger.debug("RUN")
         self.batt_voltage = 12 + random.random()*1.5
         if not self.fail_comm:
+            self.logger.debug("TICK")
             self.last_seen = time()
         if self.fail_lamp:
             self.state = 9
