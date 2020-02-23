@@ -207,7 +207,7 @@ class TrafficLightController(basic.LineReceiver):
 
 class TrafficLightGroup(TrafficLight):
     # Names of all controller files to be scanned
-    controller_names = ["{}{}".format(prefix, i)
+    controller_devs = ["{}{}".format(prefix, i)
                         for i in range(5)
                         for prefix in ["/dev/ttyUSB", '/dev/ttyACM']
                         ]
@@ -271,7 +271,7 @@ class TrafficLightGroup(TrafficLight):
         list of known file names and trying to access them
         """
         # Process a whole list of options
-        for path in self.controller_names:
+        for path in self.controller_devs:
             self.logger.debug("Try '{}'".format(path))
             if os.path.exists(path):
                 self.logger.debug("'{}' exists".format(path))
