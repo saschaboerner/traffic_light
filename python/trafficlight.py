@@ -25,7 +25,7 @@ class TrafficLight(object):
         self.batt_voltage = 0
         self.lamp_currents = [0]*3
         self.last_seen = 0
-        self.maxage = 2
+        self.maxage = 4
         self.give_way = True
         self.temp_error = False
         self.read_only = False
@@ -468,6 +468,7 @@ class TrafficLightRemote(TrafficLight):
         self.remote_url = url
         self.running_requests = {}
         self.error_count = 0
+        self.request_count = 0
         self.poll_loop.start(interval).addErrback(log.err)
 
     def update_answer_handler(self, response):
@@ -486,17 +487,24 @@ class TrafficLightRemote(TrafficLight):
         '''
         When a request fails, clean up the waiting list
         '''
-        self.logger.error(failure)
+        self.logger.error("Request {} failed: {}".format(starttime, failure))
+        self.error_count += 1
         del self.running_requests[starttime]
+
+    def error_rate(self):
+        if self.request_count > 0:
+            return 100. * self.error_count / self.request_count
+        else:
+            return None
 
     def poll_remote(self):
         '''
         Polls remote host to get its state
         '''
-
         try:
             # FIXME: might fail on first iteration as transportWrapper is not
             #        yet initialized..
+            self.request_count += 1
             challenge = self.transportWrapper.makeChallenge()
             url = self.remote_url + "?" + urllib.parse.urlencode({"challenge": challenge})
             url = bytes(url.encode("ascii"))
@@ -505,7 +513,7 @@ class TrafficLightRemote(TrafficLight):
             req.addCallback(self.request_handler, challenge, starttime)
             req.addErrback(self.poll_error, starttime)
             self.running_requests[starttime] = req
-            self.logger.debug("len(running_requests)={}".format(len(self.running_requests)))
+            self.logger.debug("len(running_requests)={}, age={:0.1f}s, error_rate={:0.2f}%".format(len(self.running_requests), time()-self.last_seen, self.error_rate()))
         except Exception as e:
             self.logger.debug(">>>>{}".format(e))
 
@@ -541,7 +549,9 @@ class TrafficLightRemote(TrafficLight):
         stale_requests = [ started for started in self.running_requests if started < self.last_seen ]
         for started in stale_requests:
             self.running_requests[started].cancel()
-            del self.running_requests[started]
+            if started in self.running_requests:
+                del self.running_requests[started]
+            self.error_count += 1
 
 
 class TrafficLightSerial(basic.LineReceiver, TrafficLight):
